@@ -138,7 +138,8 @@ export async function POST(req: Request) {
       Math.min(100, Math.round((1 - distance) * 100))
     );
 
-    if (serverSimilarity < 85) {
+    const threshold = Number(process.env.NEXT_PUBLIC_FACE_MATCH_THRESHOLD ?? "75");
+    if (serverSimilarity < threshold) {
       return NextResponse.json(
         {
           error: "Face not recognized. Please try again.",

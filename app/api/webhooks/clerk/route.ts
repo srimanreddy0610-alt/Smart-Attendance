@@ -39,14 +39,21 @@ export async function POST(req: Request) {
   const eventType = evt.type;
 
   if (eventType === "user.created") {
-    const { id, email_addresses, first_name, last_name, unsafe_metadata } =
-      evt.data;
-    const role =
-      (unsafe_metadata?.role as "teacher" | "student") || "student";
+    const { id, email_addresses, first_name, last_name } = evt.data;
+    const email = email_addresses[0]?.email_address ?? "";
+    const teacherEmails = (process.env.TEACHER_EMAILS ?? "")
+      .split(",")
+      .map((e) => e.trim().toLowerCase())
+      .filter(Boolean);
+    const role: "teacher" | "student" = teacherEmails.includes(
+      email.toLowerCase()
+    )
+      ? "teacher"
+      : "student";
 
     await db.insert(users).values({
       clerkUserId: id,
-      email: email_addresses[0]?.email_address ?? "",
+      email,
       firstName: first_name,
       lastName: last_name,
       role,

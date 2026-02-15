@@ -1,4 +1,4 @@
-import { auth } from "@clerk/nextjs/server";
+import { auth, clerkClient } from "@clerk/nextjs/server";
 import { db } from "@/lib/db";
 import { users, students } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
@@ -13,7 +13,48 @@ export async function getCurrentUser() {
     .where(eq(users.clerkUserId, userId))
     .limit(1);
 
-  return user ?? null;
+  if (user) return user;
+
+  // User is authenticated with Clerk but not yet in DB (webhook may be delayed).
+  // Auto-sync from Clerk to avoid requiring a manual page refresh.
+  try {
+    const client = await clerkClient();
+    const clerkUser = await client.users.getUser(userId);
+    const email = clerkUser.emailAddresses[0]?.emailAddress ?? "";
+    const teacherEmails = (process.env.TEACHER_EMAILS ?? "")
+      .split(",")
+      .map((e) => e.trim().toLowerCase())
+      .filter(Boolean);
+    const role: "teacher" | "student" = teacherEmails.includes(
+      email.toLowerCase()
+    )
+      ? "teacher"
+      : "student";
+
+    const [newUser] = await db
+      .insert(users)
+      .values({
+        clerkUserId: userId,
+        email,
+        firstName: clerkUser.firstName,
+        lastName: clerkUser.lastName,
+        role,
+      })
+      .onConflictDoNothing()
+      .returning();
+
+    if (newUser) return newUser;
+
+    // If onConflictDoNothing returned nothing, the webhook beat us - re-fetch
+    const [existing] = await db
+      .select()
+      .from(users)
+      .where(eq(users.clerkUserId, userId))
+      .limit(1);
+    return existing ?? null;
+  } catch {
+    return null;
+  }
 }
 
 export async function requireUser() {

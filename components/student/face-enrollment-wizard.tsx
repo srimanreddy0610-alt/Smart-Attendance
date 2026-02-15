@@ -20,7 +20,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { loadFaceModels, faceapi } from "@/lib/face-recognition/loader";
+import { loadFaceModels } from "@/lib/face-recognition/loader";
 import {
   detectFaceDescriptor,
   captureMultipleFrames,
@@ -35,7 +35,7 @@ interface FaceEnrollmentWizardProps {
   existingPhotoUrl: string | null;
 }
 
-type Step = "choose" | "webcam" | "upload" | "processing" | "done";
+type Step = "choose" | "webcam" | "processing" | "done";
 
 export function FaceEnrollmentWizard({
   hasExistingFace,
@@ -73,11 +73,13 @@ export function FaceEnrollmentWizard({
   const handleWebcamCapture = async () => {
     if (!videoRef.current || !modelsLoaded) return;
 
+    // Stay on webcam step so video element stays mounted - just show overlay
     setStep("processing");
     setProgress(10);
     setStatusMessage("Detecting face...");
 
     try {
+      // videoRef still works because the video element is kept rendered (hidden)
       const descriptor = await detectFaceDescriptor(videoRef.current);
       if (!descriptor) {
         toast.error("No face detected. Please position your face clearly.");
@@ -263,19 +265,8 @@ export function FaceEnrollmentWizard({
     );
   }
 
-  if (step === "processing") {
-    return (
-      <Card>
-        <CardContent className="flex flex-col items-center justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin mb-4" />
-          <p className="font-medium mb-2">{statusMessage}</p>
-          <Progress value={progress} className="w-64" />
-        </CardContent>
-      </Card>
-    );
-  }
-
-  if (step === "webcam") {
+  // Webcam + processing view (video stays mounted so captureMultipleFrames works)
+  if (step === "webcam" || step === "processing") {
     return (
       <Card>
         <CardHeader>
@@ -285,15 +276,24 @@ export function FaceEnrollmentWizard({
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="relative aspect-video bg-black rounded-lg overflow-hidden max-w-lg mx-auto">
+          <div className="relative w-full bg-black rounded-lg overflow-hidden">
             <video
               ref={videoRef}
               autoPlay
               playsInline
               muted
-              className="w-full h-full object-cover"
+              className={`w-full aspect-4/3 object-cover ${step === "processing" ? "opacity-50" : ""}`}
             />
-            <div className="absolute inset-0 border-2 border-dashed border-white/30 m-12 rounded-full" />
+            {step === "webcam" && (
+              <div className="absolute inset-0 border-2 border-dashed border-white/30 m-8 rounded-full" />
+            )}
+            {step === "processing" && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/40">
+                <Loader2 className="h-10 w-10 animate-spin text-white mb-4" />
+                <p className="font-medium text-white mb-2">{statusMessage}</p>
+                <Progress value={progress} className="w-64" />
+              </div>
+            )}
           </div>
           <canvas ref={canvasRef} className="hidden" />
           {webcamError && (
@@ -302,25 +302,27 @@ export function FaceEnrollmentWizard({
               <span>{webcamError}</span>
             </div>
           )}
-          <div className="flex justify-center gap-3">
-            <Button
-              variant="outline"
-              onClick={() => {
-                stop();
-                setStep("choose");
-              }}
-            >
-              Cancel
-            </Button>
-            {!isActive ? (
-              <Button onClick={start}>Start Camera</Button>
-            ) : (
-              <Button onClick={handleWebcamCapture}>
-                <Camera className="h-4 w-4 mr-2" />
-                Capture
+          {step === "webcam" && (
+            <div className="flex justify-center gap-3">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  stop();
+                  setStep("choose");
+                }}
+              >
+                Cancel
               </Button>
-            )}
-          </div>
+              {!isActive ? (
+                <Button onClick={start}>Start Camera</Button>
+              ) : (
+                <Button onClick={handleWebcamCapture}>
+                  <Camera className="h-4 w-4 mr-2" />
+                  Capture
+                </Button>
+              )}
+            </div>
+          )}
         </CardContent>
       </Card>
     );
@@ -349,7 +351,7 @@ export function FaceEnrollmentWizard({
         </Card>
       )}
 
-      <div className="grid gap-4 md:grid-cols-2 max-w-2xl">
+      <div className="grid gap-4 md:grid-cols-2">
         <Card
           className="cursor-pointer hover:border-primary transition-colors"
           onClick={() => {
@@ -357,9 +359,9 @@ export function FaceEnrollmentWizard({
             start();
           }}
         >
-          <CardContent className="flex flex-col items-center justify-center py-8">
-            <Camera className="h-12 w-12 mb-4 text-primary" />
-            <h3 className="font-semibold">Take Photo (Webcam)</h3>
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <Camera className="h-16 w-16 mb-4 text-primary" />
+            <h3 className="text-lg font-semibold">Take Photo (Webcam)</h3>
             <p className="text-sm text-muted-foreground text-center mt-1">
               Use your camera to capture a photo
             </p>
@@ -370,9 +372,9 @@ export function FaceEnrollmentWizard({
           className="cursor-pointer hover:border-primary transition-colors"
           onClick={() => fileInputRef.current?.click()}
         >
-          <CardContent className="flex flex-col items-center justify-center py-8">
-            <Upload className="h-12 w-12 mb-4 text-primary" />
-            <h3 className="font-semibold">Upload Photo</h3>
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <Upload className="h-16 w-16 mb-4 text-primary" />
+            <h3 className="text-lg font-semibold">Upload Photo</h3>
             <p className="text-sm text-muted-foreground text-center mt-1">
               Select an image file from your device
             </p>

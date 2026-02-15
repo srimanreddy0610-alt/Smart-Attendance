@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
@@ -24,10 +24,13 @@ import {
   captureMultipleFrames,
   averageDescriptors,
   compareFaceDescriptors,
-  type FaceDescriptor,
 } from "@/lib/face-recognition/utils";
 import { useWebcam } from "@/hooks/use-webcam";
 import { useFaceDetection } from "@/hooks/use-face-detection";
+
+const MATCH_THRESHOLD = Number(
+  process.env.NEXT_PUBLIC_FACE_MATCH_THRESHOLD ?? "75"
+);
 
 interface MarkAttendanceFlowProps {
   sessionId: number;
@@ -85,7 +88,7 @@ export function MarkAttendanceFlow({
 
       setProgress(70);
 
-      if (score >= 85) {
+      if (score >= MATCH_THRESHOLD) {
         // Submit to API
         const res = await fetch("/api/attendance/mark", {
           method: "POST",
@@ -158,7 +161,7 @@ export function MarkAttendanceFlow({
           <XCircle className="h-16 w-16 text-destructive mb-4" />
           <h3 className="text-xl font-semibold mb-2">Face Not Recognized</h3>
           <p className="text-muted-foreground mb-2">
-            Similarity: {similarity}% (minimum 85% required)
+            Similarity: {similarity}% (minimum {MATCH_THRESHOLD}% required)
           </p>
           {attempts >= 3 ? (
             <div className="text-center">
@@ -199,16 +202,16 @@ export function MarkAttendanceFlow({
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="relative aspect-video bg-black rounded-lg overflow-hidden max-w-lg mx-auto">
+        <div className="relative w-full bg-black rounded-lg overflow-hidden">
           <video
             ref={videoRef}
             autoPlay
             playsInline
             muted
-            className="w-full h-full object-cover"
+            className="w-full aspect-4/3 object-cover"
           />
           <div
-            className={`absolute inset-0 border-4 m-8 rounded-lg transition-colors ${
+            className={`absolute inset-0 border-4 m-6 rounded-lg transition-colors ${
               faceDetected ? "border-green-500" : "border-white/30"
             }`}
           />
