@@ -10,14 +10,8 @@ import {
   attendanceSessions,
 } from "@/lib/db/schema";
 import { eq, and, sql } from "drizzle-orm";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { BookOpen, User } from "lucide-react";
+import { BookOpen, User, GraduationCap } from "lucide-react";
 
 export default async function StudentCoursesPage() {
   const { userId } = await auth();
@@ -95,49 +89,42 @@ export default async function StudentCoursesPage() {
       </div>
 
       {coursesWithAttendance.length === 0 ? (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <BookOpen className="h-12 w-12 text-muted-foreground mb-4" />
-            <p className="text-muted-foreground">
-              You are not enrolled in any courses yet.
-            </p>
-            <p className="text-sm text-muted-foreground">
-              Your teacher will add you to courses.
-            </p>
-          </CardContent>
-        </Card>
+        <div className="flex flex-col items-center justify-center rounded-xl border bg-card py-16 text-muted-foreground">
+          <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-muted mb-4">
+            <BookOpen className="h-7 w-7 opacity-50" />
+          </div>
+          <p className="font-medium mb-1">No courses yet</p>
+          <p className="text-sm">Your teacher will add you to courses</p>
+        </div>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {coursesWithAttendance.map((c) => (
-            <Card key={c.courseId}>
-              <CardHeader className="pb-3">
-                <div className="flex items-start justify-between">
-                  <CardTitle className="text-lg">{c.courseName}</CardTitle>
-                  <Badge variant={getBadgeVariant(c.percentage)}>
-                    {c.percentage}%
-                  </Badge>
+            <div key={c.courseId} className="group rounded-xl border bg-card p-5 hover:shadow-md transition-all duration-300">
+              <div className="flex items-start justify-between mb-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 group-hover:bg-primary/15 transition-colors">
+                  <GraduationCap className="h-5 w-5 text-primary" />
                 </div>
-                <p className="text-sm text-muted-foreground">{c.courseCode}</p>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                <div className="flex items-center gap-2 text-sm">
-                  <User className="h-3.5 w-3.5 text-muted-foreground" />
-                  <span>
-                    {[c.teacherFirstName, c.teacherLastName]
-                      .filter(Boolean)
-                      .join(" ")}
+                <Badge variant={getBadgeVariant(c.percentage)}>
+                  {c.percentage}%
+                </Badge>
+              </div>
+              <h3 className="font-semibold text-base mb-0.5 line-clamp-2">{c.courseName}</h3>
+              <p className="text-xs font-mono text-muted-foreground mb-3">{c.courseCode}</p>
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                  <User className="h-3.5 w-3.5 shrink-0" />
+                  <span className="truncate">
+                    {[c.teacherFirstName, c.teacherLastName].filter(Boolean).join(" ")}
                   </span>
                 </div>
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <span>
-                    {c.department} | Sem {c.semester} | Sec {c.section}
-                  </span>
-                </div>
-                <div className="text-sm text-muted-foreground">
+                <p className="text-xs text-muted-foreground">
+                  {c.department} &middot; Sem {c.semester} &middot; Sec {c.section}
+                </p>
+                <p className="text-xs text-muted-foreground">
                   Attended: {c.present} / {c.total} sessions
-                </div>
-              </CardContent>
-            </Card>
+                </p>
+              </div>
+            </div>
           ))}
         </div>
       )}

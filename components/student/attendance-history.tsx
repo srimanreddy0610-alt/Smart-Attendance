@@ -5,12 +5,6 @@ import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { Calendar as CalendarIcon, Filter } from "lucide-react";
 import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import {
   Table,
   TableBody,
   TableCell,
@@ -95,43 +89,42 @@ export function AttendanceHistory({ courses }: AttendanceHistoryProps) {
 
       {/* Stats */}
       <div className="grid gap-4 md:grid-cols-3">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">
-              Total Classes
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{total}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Attended</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{present}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">
-              Attendance %
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{percentage}%</div>
-          </CardContent>
-        </Card>
+        <div className="group rounded-xl border bg-card p-5 hover:shadow-md transition-all duration-300">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-sm font-medium text-muted-foreground">Total Classes</span>
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 group-hover:bg-primary/15 transition-colors">
+              <CalendarIcon className="h-4 w-4 text-primary" />
+            </div>
+          </div>
+          <div className="text-3xl font-bold tracking-tight">{total}</div>
+        </div>
+        <div className="group rounded-xl border bg-card p-5 hover:shadow-md transition-all duration-300">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-sm font-medium text-muted-foreground">Attended</span>
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-500/10 group-hover:bg-emerald-500/15 transition-colors">
+              <CalendarIcon className="h-4 w-4 text-emerald-600" />
+            </div>
+          </div>
+          <div className="text-3xl font-bold tracking-tight">{present}</div>
+        </div>
+        <div className="group rounded-xl border bg-card p-5 hover:shadow-md transition-all duration-300">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-sm font-medium text-muted-foreground">Attendance %</span>
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-500/10 group-hover:bg-blue-500/15 transition-colors">
+              <Filter className="h-4 w-4 text-blue-600" />
+            </div>
+          </div>
+          <div className="text-3xl font-bold tracking-tight">{percentage}%</div>
+        </div>
       </div>
 
       {/* Table */}
-      <Card>
-        <CardContent className="pt-6">
+      <div className="rounded-xl border bg-card">
+        <div className="p-0">
           {isLoading ? (
-            <div className="space-y-3">
+            <div className="space-y-3 p-5">
               {Array.from({ length: 5 }).map((_, i) => (
-                <Skeleton key={i} className="h-10 w-full" />
+                <Skeleton key={i} className="h-10 w-full rounded-lg" />
               ))}
             </div>
           ) : records && records.length > 0 ? (
@@ -187,12 +180,13 @@ export function AttendanceHistory({ courses }: AttendanceHistoryProps) {
               </TableBody>
             </Table>
           ) : (
-            <p className="text-center text-muted-foreground py-8">
-              No attendance records found
-            </p>
+            <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+              <CalendarIcon className="h-10 w-10 mb-3 opacity-30" />
+              <p className="text-sm">No attendance records found</p>
+            </div>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
   );
 }

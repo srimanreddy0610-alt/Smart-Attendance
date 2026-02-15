@@ -87,13 +87,13 @@ export function OnboardingForm() {
   }
 
   return (
-    <Card className="w-full max-w-md">
-      <CardHeader className="text-center">
-        <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
-          <GraduationCap className="h-6 w-6 text-primary" />
+    <Card className="w-full max-w-md shadow-xl border-border/50">
+      <CardHeader className="text-center pb-2">
+        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-linear-to-br from-primary/20 to-primary/10 ring-1 ring-primary/20">
+          <GraduationCap className="h-7 w-7 text-primary" />
         </div>
-        <CardTitle className="text-2xl">Complete Your Profile</CardTitle>
-        <CardDescription>
+        <CardTitle className="text-2xl font-bold">Complete Your Profile</CardTitle>
+        <CardDescription className="text-sm">
           Fill in your details to get started with the attendance system
         </CardDescription>
       </CardHeader>

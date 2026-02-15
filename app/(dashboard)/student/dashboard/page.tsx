@@ -10,14 +10,7 @@ import {
   attendanceRecords,
   timetable,
 } from "@/lib/db/schema";
-import { eq, and, sql, desc } from "drizzle-orm";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { eq, and, sql } from "drizzle-orm";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -25,9 +18,13 @@ import {
   ClipboardCheck,
   Calendar,
   AlertCircle,
+  Clock,
+  MapPin,
+  ArrowRight,
 } from "lucide-react";
 import Link from "next/link";
 import { NotificationListener } from "@/components/student/notification-listener";
+import { StudentDashboardClient } from "@/components/student/student-dashboard-client";
 
 export default async function StudentDashboard() {
   const { userId } = await auth();
@@ -128,141 +125,141 @@ export default async function StudentDashboard() {
       <NotificationListener enrolledCourseIds={courseIds} />
 
       <div>
-        <h1 className="text-2xl font-bold">
-          Welcome, {user?.firstName || "Student"}
+        <h1 className="text-2xl font-bold tracking-tight">
+          Welcome back, {user?.firstName || "Student"}
         </h1>
-        <p className="text-muted-foreground">
+        <p className="text-muted-foreground mt-1">
           Here&apos;s your attendance overview
         </p>
       </div>
 
       {/* Active Sessions Alert */}
       {activeSessions.length > 0 && (
-        <Card className="border-orange-500 bg-orange-50 dark:bg-orange-950/20">
-          <CardContent className="flex items-center gap-4 pt-6">
-            <AlertCircle className="h-8 w-8 text-orange-500" />
-            <div className="flex-1">
-              <p className="font-semibold">Active Attendance Session</p>
+        <div className="relative overflow-hidden rounded-xl border border-orange-200 bg-linear-to-r from-orange-50 to-amber-50 p-5 dark:border-orange-900/50 dark:from-orange-950/30 dark:to-amber-950/30">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-orange-200/30 rounded-full -translate-y-1/2 translate-x-1/2 blur-2xl" />
+          <div className="relative flex items-center gap-4">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-orange-100 dark:bg-orange-900/50">
+              <AlertCircle className="h-6 w-6 text-orange-600" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="font-semibold text-orange-900 dark:text-orange-200">
+                Active Attendance Session
+              </p>
               {activeSessions.map((s) => (
-                <p key={s.sessionId} className="text-sm text-muted-foreground">
+                <p key={s.sessionId} className="text-sm text-orange-700/80 dark:text-orange-300/80 truncate">
                   {s.courseName} - Started at{" "}
                   {new Date(s.startTime).toLocaleTimeString()}
                 </p>
               ))}
             </div>
-            <Button asChild>
+            <Button asChild size="sm" className="shrink-0">
               <Link href={`/student/mark-attendance/${activeSessions[0].sessionId}`}>
                 Mark Attendance
+                <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
               </Link>
             </Button>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       )}
 
       {/* Stats Cards */}
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">
-              Enrolled Courses
-            </CardTitle>
-            <BookOpen className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{enrolledCourses.length}</div>
-          </CardContent>
-        </Card>
+      <StudentDashboardClient
+        enrolledCount={enrolledCourses.length}
+        percentage={percentage}
+        present={present}
+        total={total}
+        classesToday={todaysClasses.length}
+      />
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">
-              Overall Attendance
-            </CardTitle>
-            <ClipboardCheck className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{percentage}%</div>
-            <p className="text-xs text-muted-foreground">
-              {present} of {total} classes
+      <div className="grid gap-5 lg:grid-cols-2">
+        {/* Today's Schedule */}
+        <div className="rounded-xl border bg-card">
+          <div className="p-5 pb-3">
+            <h3 className="font-semibold text-base">Today&apos;s Schedule</h3>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              Your classes for today
             </p>
-          </CardContent>
-        </Card>
+          </div>
+          <div className="px-5 pb-5">
+            {todaysClasses.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
+                <Calendar className="h-10 w-10 mb-3 opacity-40" />
+                <p className="text-sm">No classes scheduled for today</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {todaysClasses.map((cls, i) => (
+                  <div
+                    key={i}
+                    className="flex items-center gap-3 rounded-lg border p-3 hover:bg-muted/50 transition-colors"
+                  >
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+                      <Clock className="h-4 w-4 text-primary" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-sm truncate">{cls.courseName}</p>
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
+                        <span>{cls.startTime} - {cls.endTime}</span>
+                        {cls.roomNumber && (
+                          <>
+                            <span className="text-border">|</span>
+                            <span className="flex items-center gap-0.5">
+                              <MapPin className="h-3 w-3" />
+                              {cls.roomNumber}
+                            </span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">
-              Classes Today
-            </CardTitle>
-            <Calendar className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{todaysClasses.length}</div>
-          </CardContent>
-        </Card>
+        {/* Enrolled Courses */}
+        <div className="rounded-xl border bg-card">
+          <div className="p-5 pb-3">
+            <h3 className="font-semibold text-base">My Courses</h3>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              {enrolledCourses.length} enrolled
+            </p>
+          </div>
+          <div className="px-5 pb-5">
+            {enrolledCourses.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
+                <BookOpen className="h-10 w-10 mb-3 opacity-40" />
+                <p className="text-sm">Not enrolled in any courses yet</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {enrolledCourses.map((c) => (
+                  <div
+                    key={c.courseId}
+                    className="flex items-center justify-between gap-3 rounded-lg border p-3 hover:bg-muted/50 transition-colors"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+                        <BookOpen className="h-4 w-4 text-primary" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="font-medium text-sm truncate">{c.courseName}</p>
+                        <p className="text-xs text-muted-foreground truncate">
+                          {c.teacherName}
+                        </p>
+                      </div>
+                    </div>
+                    <Badge variant="secondary" className="shrink-0 text-xs">
+                      {c.courseCode}
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
       </div>
-
-      {/* Today's Schedule */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Today&apos;s Schedule</CardTitle>
-          <CardDescription>Your classes for today</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {todaysClasses.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              No classes scheduled for today
-            </p>
-          ) : (
-            <div className="space-y-3">
-              {todaysClasses.map((cls, i) => (
-                <div
-                  key={i}
-                  className="flex items-center justify-between rounded-lg border p-3"
-                >
-                  <div>
-                    <p className="font-medium">{cls.courseName}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {cls.startTime} - {cls.endTime}
-                      {cls.roomNumber && ` | Room ${cls.roomNumber}`}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Enrolled Courses */}
-      <Card>
-        <CardHeader>
-          <CardTitle>My Courses</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {enrolledCourses.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              You are not enrolled in any courses yet
-            </p>
-          ) : (
-            <div className="space-y-3">
-              {enrolledCourses.map((c) => (
-                <div
-                  key={c.courseId}
-                  className="flex items-center justify-between rounded-lg border p-3"
-                >
-                  <div>
-                    <p className="font-medium">{c.courseName}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {c.courseCode} | {c.teacherName}
-                    </p>
-                  </div>
-                  <Badge variant="outline">{c.courseCode}</Badge>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
     </div>
   );
 }

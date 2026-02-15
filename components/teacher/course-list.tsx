@@ -9,12 +9,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { courseSchema, type CourseValues } from "@/lib/validations/course";
 import { Button } from "@/components/ui/button";
 import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -250,37 +244,33 @@ export function CourseList({ courses: initialCourses }: { courses: Course[] }) {
       </div>
 
       {initialCourses.length === 0 ? (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <BookOpen className="h-12 w-12 text-muted-foreground mb-4" />
-            <p className="text-muted-foreground mb-2">No courses yet</p>
-            <p className="text-sm text-muted-foreground">
-              Create your first course to get started
-            </p>
-          </CardContent>
-        </Card>
+        <div className="flex flex-col items-center justify-center rounded-xl border bg-card py-16 text-muted-foreground">
+          <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-muted mb-4">
+            <BookOpen className="h-7 w-7 opacity-50" />
+          </div>
+          <p className="font-medium mb-1">No courses yet</p>
+          <p className="text-sm">Create your first course to get started</p>
+        </div>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {initialCourses.map((course) => (
             <Link key={course.id} href={`/teacher/courses/${course.id}`}>
-              <Card className="hover:border-primary transition-colors cursor-pointer h-full">
-                <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between">
-                    <CardTitle className="text-lg">{course.name}</CardTitle>
-                    <Badge variant="outline">{course.code}</Badge>
+              <div className="group rounded-xl border bg-card p-5 hover:border-primary/50 hover:shadow-md transition-all duration-300 cursor-pointer h-full">
+                <div className="flex items-start justify-between mb-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 group-hover:bg-primary/15 transition-colors">
+                    <BookOpen className="h-5 w-5 text-primary" />
                   </div>
-                </CardHeader>
-                <CardContent className="space-y-2">
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Users className="h-3.5 w-3.5" />
-                    <span>{Number(course.studentCount)} students</span>
-                  </div>
-                  <div className="text-sm text-muted-foreground">
-                    {course.department} | Sem {course.semester} | Sec{" "}
-                    {course.section}
-                  </div>
-                </CardContent>
-              </Card>
+                  <Badge variant="outline" className="font-mono text-xs">{course.code}</Badge>
+                </div>
+                <h3 className="font-semibold text-base mb-1 line-clamp-2">{course.name}</h3>
+                <p className="text-xs text-muted-foreground mb-3">
+                  {course.department} &middot; Sem {course.semester} &middot; Sec {course.section}
+                </p>
+                <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                  <Users className="h-3.5 w-3.5" />
+                  <span>{Number(course.studentCount)} students enrolled</span>
+                </div>
+              </div>
             </Link>
           ))}
         </div>

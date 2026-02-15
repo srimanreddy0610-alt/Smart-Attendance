@@ -3,6 +3,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/layout/app-sidebar";
 import { DashboardHeader } from "@/components/layout/dashboard-header";
+import { AIChat } from "@/components/student/ai-chat";
 
 export default async function DashboardLayout({
   children,
@@ -23,6 +24,7 @@ export default async function DashboardLayout({
           <main className="flex-1 p-6">{children}</main>
         </div>
       </div>
+      {user.role === "student" && <AIChat />}
     </SidebarProvider>
   );
 }

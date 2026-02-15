@@ -12,12 +12,6 @@ import {
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import {
   Table,
   TableBody,
   TableCell,
@@ -238,12 +232,15 @@ export function CourseDetailTabs({
           </Dialog>
         </div>
 
-        <Card>
-          <CardContent className="pt-6">
+        <div className="rounded-xl border bg-card">
+          <div className="p-0">
             {enrolledStudents.length === 0 ? (
-              <p className="text-center text-muted-foreground py-8">
-                No students enrolled yet
-              </p>
+              <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-muted mb-3">
+                  <UserPlus className="h-5 w-5 opacity-50" />
+                </div>
+                <p className="text-sm">No students enrolled yet</p>
+              </div>
             ) : (
               <Table>
                 <TableHeader>
@@ -252,7 +249,7 @@ export function CourseDetailTabs({
                     <TableHead>Name</TableHead>
                     <TableHead>Email</TableHead>
                     <TableHead>Enrolled</TableHead>
-                    <TableHead className="w-[50px]" />
+                    <TableHead className="w-12.5" />
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -282,8 +279,8 @@ export function CourseDetailTabs({
                 </TableBody>
               </Table>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       </TabsContent>
 
       {/* Sessions Tab */}
@@ -295,12 +292,15 @@ export function CourseDetailTabs({
             </Link>
           </Button>
         </div>
-        <Card>
-          <CardContent className="pt-6">
+        <div className="rounded-xl border bg-card">
+          <div className="p-0">
             {recentSessions.length === 0 ? (
-              <p className="text-center text-muted-foreground py-8">
-                No sessions yet
-              </p>
+              <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-muted mb-3">
+                  <Plus className="h-5 w-5 opacity-50" />
+                </div>
+                <p className="text-sm">No sessions yet</p>
+              </div>
             ) : (
               <Table>
                 <TableHeader>
@@ -355,8 +355,8 @@ export function CourseDetailTabs({
                 </TableBody>
               </Table>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       </TabsContent>
 
       {/* Timetable Tab */}
@@ -433,12 +433,15 @@ export function CourseDetailTabs({
           </Dialog>
         </div>
 
-        <Card>
-          <CardContent className="pt-6">
+        <div className="rounded-xl border bg-card">
+          <div className="p-0">
             {timetableEntries.length === 0 ? (
-              <p className="text-center text-muted-foreground py-8">
-                No schedule added yet
-              </p>
+              <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-muted mb-3">
+                  <Plus className="h-5 w-5 opacity-50" />
+                </div>
+                <p className="text-sm">No schedule added yet</p>
+              </div>
             ) : (
               <Table>
                 <TableHeader>
@@ -447,7 +450,7 @@ export function CourseDetailTabs({
                     <TableHead>Start</TableHead>
                     <TableHead>End</TableHead>
                     <TableHead>Room</TableHead>
-                    <TableHead className="w-[50px]" />
+                    <TableHead className="w-12.5" />
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -471,8 +474,8 @@ export function CourseDetailTabs({
                 </TableBody>
               </Table>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       </TabsContent>
     </Tabs>
   );

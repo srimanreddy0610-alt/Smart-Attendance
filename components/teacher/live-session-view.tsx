@@ -15,12 +15,6 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import {
   Table,
   TableBody,
   TableCell,
@@ -141,54 +135,44 @@ export function LiveSessionView({
     <div className="space-y-6">
       {/* Stats Row */}
       <div className="grid gap-4 md:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Status</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Badge
-              variant={currentStatus === "active" ? "default" : "secondary"}
-              className="text-lg px-3 py-1"
-            >
-              {currentStatus === "active" ? "LIVE" : "ENDED"}
-            </Badge>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Present</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {presentCount} / {totalStudents}
+        <div className="rounded-xl border bg-card p-5">
+          <p className="text-sm font-medium text-muted-foreground mb-3">Status</p>
+          <Badge
+            variant={currentStatus === "active" ? "default" : "secondary"}
+            className={`text-sm px-3 py-1 ${currentStatus === "active" ? "animate-pulse" : ""}`}
+          >
+            {currentStatus === "active" ? "● LIVE" : "ENDED"}
+          </Badge>
+        </div>
+        <div className="rounded-xl border bg-card p-5">
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-sm font-medium text-muted-foreground">Present</p>
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/10">
+              <Users className="h-4 w-4 text-emerald-600" />
             </div>
-            <Progress value={percentage} className="mt-2" />
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">
-              Time Remaining
-            </CardTitle>
-            <Clock className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold font-mono">
-              {timeRemaining}
+          </div>
+          <div className="text-2xl font-bold">
+            {presentCount} <span className="text-muted-foreground text-lg font-normal">/ {totalStudents}</span>
+          </div>
+          <Progress value={percentage} className="mt-2 h-1.5" />
+        </div>
+        <div className="rounded-xl border bg-card p-5">
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-sm font-medium text-muted-foreground">Time Remaining</p>
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-500/10">
+              <Clock className="h-4 w-4 text-blue-600" />
             </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Started At</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-lg font-medium">
-              {format(new Date(startTime), "hh:mm a")}
-            </div>
-          </CardContent>
-        </Card>
+          </div>
+          <div className="text-2xl font-bold font-mono">
+            {timeRemaining}
+          </div>
+        </div>
+        <div className="rounded-xl border bg-card p-5">
+          <p className="text-sm font-medium text-muted-foreground mb-3">Started At</p>
+          <div className="text-2xl font-bold">
+            {format(new Date(startTime), "hh:mm a")}
+          </div>
+        </div>
       </div>
 
       {/* End Session Button */}
@@ -208,11 +192,11 @@ export function LiveSessionView({
       )}
 
       {/* Student Attendance Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Student Attendance</CardTitle>
-        </CardHeader>
-        <CardContent>
+      <div className="rounded-xl border bg-card">
+        <div className="p-5 pb-3">
+          <h3 className="font-semibold text-base">Student Attendance</h3>
+        </div>
+        <div className="px-5 pb-5">
           {isLoading ? (
             <div className="flex items-center justify-center py-8">
               <Loader2 className="h-8 w-8 animate-spin" />
@@ -227,7 +211,7 @@ export function LiveSessionView({
                   <TableHead>Marked At</TableHead>
                   <TableHead>Confidence</TableHead>
                   {currentStatus === "active" && (
-                    <TableHead className="w-[100px]">Action</TableHead>
+                    <TableHead className="w-25">Action</TableHead>
                   )}
                 </TableRow>
               </TableHeader>
@@ -287,8 +271,8 @@ export function LiveSessionView({
               </TableBody>
             </Table>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       {/* Manual Override Dialog */}
       <Dialog
