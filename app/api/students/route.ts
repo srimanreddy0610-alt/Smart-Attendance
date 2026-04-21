@@ -1,32 +1,25 @@
-import { auth } from "@clerk/nextjs/server";
-import { db } from "@/lib/db";
-import { users, students } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { getCurrentUser, getSessionUserId } from "@/lib/auth";
+import { getDb } from "@/lib/db";
+import { User, Student } from "@/lib/db/schema";
 import { studentOnboardingSchema } from "@/lib/validations/student";
 import { NextResponse } from "next/server";
 
 export async function POST(req: Request) {
   try {
-    const { userId } = await auth();
+    const userId = await getSessionUserId();
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const [user] = await db
-      .select()
-      .from(users)
-      .where(eq(users.clerkUserId, userId))
-      .limit(1);
+    await getDb();
+
+    const user = await User.findById(userId);
 
     if (!user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    const [existing] = await db
-      .select()
-      .from(students)
-      .where(eq(students.clerkUserId, userId))
-      .limit(1);
+    const existing = await Student.findOne({ user: userId });
 
     if (existing) {
       return NextResponse.json(
@@ -45,16 +38,26 @@ export async function POST(req: Request) {
       );
     }
 
-    const [student] = await db
-      .insert(students)
-      .values({
-        clerkUserId: userId,
-        rollNumber: parsed.data.rollNumber,
-        department: parsed.data.department,
-        semester: parsed.data.semester,
-        section: parsed.data.section,
-      })
-      .returning();
+    const student = await Student.create({
+      user: userId,
+      user: user._id,
+      rollNumber: parsed.data.rollNumber,
+      department: parsed.data.department,
+      semester: parsed.data.semester,
+      section: parsed.data.section,
+    });
+
+    // Create enrollments for selected courses
+    if (parsed.data.courseIds && parsed.data.courseIds.length > 0) {
+      const { Enrollment } = await import("@/lib/db/schema");
+      const enrollmentPromises = parsed.data.courseIds.map((courseId) => 
+        Enrollment.create({
+          courseId,
+          studentId: student._id,
+        })
+      );
+      await Promise.all(enrollmentPromises);
+    }
 
     return NextResponse.json(student, { status: 201 });
   } catch (error) {
@@ -68,16 +71,14 @@ export async function POST(req: Request) {
 
 export async function GET() {
   try {
-    const { userId } = await auth();
+    const userId = await getSessionUserId();
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const [student] = await db
-      .select()
-      .from(students)
-      .where(eq(students.clerkUserId, userId))
-      .limit(1);
+    await getDb();
+
+    const student = await Student.findOne({ user: userId });
 
     if (!student) {
       return NextResponse.json(
@@ -95,3 +96,5 @@ export async function GET() {
     );
   }
 }
+
+

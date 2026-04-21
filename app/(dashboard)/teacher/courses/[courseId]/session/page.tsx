@@ -1,8 +1,7 @@
 import { redirect } from "next/navigation";
-import { auth } from "@clerk/nextjs/server";
-import { db } from "@/lib/db";
-import { users, courses, attendanceSessions } from "@/lib/db/schema";
-import { eq, and } from "drizzle-orm";
+import { getCurrentUser } from "@/lib/auth";
+import { getDb } from "@/lib/db";
+import { User, Course, AttendanceSession } from "@/lib/db/schema";
 import { StartSessionForm } from "@/components/teacher/start-session-form";
 
 export default async function SessionPage({
@@ -10,38 +9,30 @@ export default async function SessionPage({
 }: {
   params: Promise<{ courseId: string }>;
 }) {
-  const { userId } = await auth();
+  const sessionUser = await getCurrentUser();
+  const userId = sessionUser?._id?.toString();
   if (!userId) redirect("/sign-in");
 
-  const [user] = await db
-    .select()
-    .from(users)
-    .where(eq(users.clerkUserId, userId))
-    .limit(1);
+  await getDb();
+
+  const user = await User.findById(userId);
 
   if (!user || user.role !== "teacher") redirect("/");
 
   const { courseId } = await params;
 
-  const [course] = await db
-    .select()
-    .from(courses)
-    .where(and(eq(courses.id, parseInt(courseId)), eq(courses.teacherId, user.id)))
-    .limit(1);
+  const course = await Course.findOne({
+    _id: courseId,
+    teacherId: user._id
+  });
 
   if (!course) redirect("/teacher/courses");
 
   // Check for existing active session
-  const [activeSession] = await db
-    .select()
-    .from(attendanceSessions)
-    .where(
-      and(
-        eq(attendanceSessions.courseId, parseInt(courseId)),
-        eq(attendanceSessions.status, "active")
-      )
-    )
-    .limit(1);
+  const activeSession = await AttendanceSession.findOne({
+    courseId,
+    status: "active"
+  });
 
   return (
     <div className="space-y-6">
@@ -52,9 +43,9 @@ export default async function SessionPage({
         </p>
       </div>
       <StartSessionForm
-        courseId={course.id}
+        courseId={course._id.toString()}
         courseName={course.name}
-        activeSessionId={activeSession?.id}
+        activeSessionId={activeSession?._id?.toString()}
       />
     </div>
   );

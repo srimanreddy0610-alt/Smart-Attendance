@@ -1,18 +1,17 @@
 import { NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
-import { db } from "@/lib/db";
+import { getCurrentUser, getSessionUserId } from "@/lib/auth";
+import { getDb } from "@/lib/db";
 import {
-  attendanceRecords,
-  attendanceSessions,
-  courses,
-  students,
-  users,
+  AttendanceRecord,
+  AttendanceSession,
+  Course,
+  Student,
+  User,
 } from "@/lib/db/schema";
-import { eq, and, gte, lte, sql, desc } from "drizzle-orm";
 
 export async function GET(req: Request) {
   try {
-    const { userId } = await auth();
+    const userId = await getSessionUserId();
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -23,74 +22,85 @@ export async function GET(req: Request) {
     const startDate = searchParams.get("startDate");
     const endDate = searchParams.get("endDate");
 
-    const [user] = await db
-      .select()
-      .from(users)
-      .where(eq(users.clerkUserId, userId))
-      .limit(1);
+    await getDb();
+
+    const user = await User.findById(userId);
 
     if (!user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    const conditions = [];
+    let filterRecord: any = {};
+    let filterSession: any = {};
 
     // If student, restrict to their own records
     if (user.role === "student") {
-      const [student] = await db
-        .select()
-        .from(students)
-        .where(eq(students.clerkUserId, userId))
-        .limit(1);
+      const student = await Student.findOne({ user: userId });
 
       if (!student) {
         return NextResponse.json([]);
       }
 
-      conditions.push(eq(attendanceRecords.studentId, student.id));
+      filterRecord.studentId = student._id;
     }
 
     if (studentId) {
-      conditions.push(eq(attendanceRecords.studentId, parseInt(studentId)));
+      filterRecord.studentId = studentId;
     }
 
     if (courseId) {
-      conditions.push(eq(attendanceSessions.courseId, parseInt(courseId)));
+      filterSession.courseId = courseId;
     }
 
-    if (startDate) {
-      conditions.push(gte(attendanceSessions.sessionDate, new Date(startDate)));
+    if (startDate || endDate) {
+      filterSession.sessionDate = {};
+      if (startDate) {
+        filterSession.sessionDate.$gte = new Date(startDate);
+      }
+      if (endDate) {
+        filterSession.sessionDate.$lte = new Date(endDate);
+      }
     }
 
-    if (endDate) {
-      conditions.push(lte(attendanceSessions.sessionDate, new Date(endDate)));
-    }
+    // First find matching sessions
+    const sessions = await AttendanceSession.find(filterSession).select('_id courseId sessionDate').populate({
+      path: 'courseId',
+      select: 'name code _id'
+    }).lean();
 
-    const records = await db
-      .select({
-        id: attendanceRecords.id,
-        sessionId: attendanceRecords.sessionId,
-        studentId: attendanceRecords.studentId,
-        status: attendanceRecords.status,
-        markedAt: attendanceRecords.markedAt,
-        confidenceScore: attendanceRecords.confidenceScore,
-        isManualEntry: attendanceRecords.isManualEntry,
-        sessionDate: attendanceSessions.sessionDate,
-        courseName: courses.name,
-        courseCode: courses.code,
-        courseId: courses.id,
-      })
-      .from(attendanceRecords)
-      .innerJoin(
-        attendanceSessions,
-        eq(attendanceRecords.sessionId, attendanceSessions.id)
-      )
-      .innerJoin(courses, eq(attendanceSessions.courseId, courses.id))
-      .where(conditions.length > 0 ? and(...conditions) : undefined)
-      .orderBy(desc(attendanceSessions.sessionDate))
-      .limit(100);
+    const sessionIds = sessions.map(s => s._id);
 
-    return NextResponse.json(records);
+    filterRecord.sessionId = { $in: sessionIds };
+
+    const records = await AttendanceRecord.find(filterRecord)
+      .sort({ markedAt: -1 })
+      .limit(100)
+      .lean();
+
+    // Map the results back to the desired format
+    const results = records.map((record: any) => {
+      const session = sessions.find((s: any) => s._id.toString() === record.sessionId.toString());
+      const course = session?.courseId as any;
+
+      return {
+        id: record._id,
+        sessionId: record.sessionId,
+        studentId: record.studentId,
+        status: record.status,
+        markedAt: record.markedAt,
+        confidenceScore: record.confidenceScore,
+        isManualEntry: record.isManualEntry,
+        sessionDate: session?.sessionDate,
+        courseName: course?.name,
+        courseCode: course?.code,
+        courseId: course?._id,
+      };
+    }).sort((a: any, b: any) => {
+        if(!a.sessionDate || !b.sessionDate) return 0;
+        return new Date(b.sessionDate).getTime() - new Date(a.sessionDate).getTime();
+    });
+
+    return NextResponse.json(results);
   } catch (error) {
     console.error("[RECORDS_GET]", error);
     return NextResponse.json(
@@ -99,3 +109,4 @@ export async function GET(req: Request) {
     );
   }
 }
+

@@ -1,7 +1,7 @@
 export const CHANNELS = {
-  student: (studentId: number) => `student-${studentId}`,
-  session: (sessionId: number) => `session-${sessionId}`,
-  course: (courseId: number) => `course-${courseId}`,
+  student: (studentId: string) => `student-${studentId}`,
+  session: (sessionId: string) => `session-${sessionId}`,
+  course: (courseId: string) => `course-${courseId}`,
 } as const;
 
 export const EVENTS = {

@@ -28,25 +28,34 @@ import {
 import { useWebcam } from "@/hooks/use-webcam";
 import { useFaceDetection } from "@/hooks/use-face-detection";
 
+import {
+  InputOTP,
+  InputOTPGroup,
+  InputOTPSlot,
+} from "@/components/ui/input-otp"
+
 const MATCH_THRESHOLD = Number(
   process.env.NEXT_PUBLIC_FACE_MATCH_THRESHOLD ?? "75"
 );
 
 interface MarkAttendanceFlowProps {
-  sessionId: number;
+  sessionId: string;
   courseName: string;
   storedDescriptor: number[];
+  expectedAccessCode: string | undefined;
 }
 
-type Status = "loading" | "camera" | "capturing" | "verifying" | "success" | "failed";
+type Status = "awaiting_code" | "loading" | "camera" | "capturing" | "verifying" | "success" | "failed";
 
 export function MarkAttendanceFlow({
   sessionId,
   courseName,
   storedDescriptor,
+  expectedAccessCode,
 }: MarkAttendanceFlowProps) {
   const router = useRouter();
-  const [status, setStatus] = useState<Status>("loading");
+  const [status, setStatus] = useState<Status>("awaiting_code");
+  const [enteredCode, setEnteredCode] = useState("");
   const [modelsLoaded, setModelsLoaded] = useState(false);
   const [similarity, setSimilarity] = useState(0);
   const [attempts, setAttempts] = useState(0);
@@ -54,14 +63,20 @@ export function MarkAttendanceFlow({
   const { videoRef, isActive, start, stop, error: webcamError } = useWebcam();
   const { faceDetected } = useFaceDetection(videoRef, isActive && status === "camera");
 
-  useEffect(() => {
-    loadFaceModels()
-      .then(() => {
-        setModelsLoaded(true);
-        setStatus("camera");
-      })
-      .catch(() => toast.error("Failed to load face models"));
-  }, []);
+  const handleVerifyCode = () => {
+    if (enteredCode.toUpperCase() === expectedAccessCode?.toUpperCase()) {
+      setStatus("loading");
+      loadFaceModels()
+        .then(() => {
+          setModelsLoaded(true);
+          setStatus("camera");
+          start();
+        })
+        .catch(() => toast.error("Failed to load face models"));
+    } else {
+      toast.error("Invalid access code. Please check with your teacher.");
+    }
+  };
 
   const handleCapture = useCallback(async () => {
     if (!videoRef.current || !modelsLoaded) return;
@@ -98,6 +113,7 @@ export function MarkAttendanceFlow({
             faceDescriptor: avgDescriptor,
             confidenceScore: score,
             verificationFrames: descriptors.length,
+            accessCode: enteredCode, // Double verify on server
           }),
         });
 
@@ -122,7 +138,47 @@ export function MarkAttendanceFlow({
       setAttempts((prev) => prev + 1);
       setStatus("failed");
     }
-  }, [videoRef, modelsLoaded, storedDescriptor, sessionId, stop]);
+  }, [videoRef, modelsLoaded, storedDescriptor, sessionId, stop, enteredCode]);
+
+  if (status === "awaiting_code") {
+    return (
+      <Card className="border-primary/20 bg-primary/5 shadow-inner">
+        <CardHeader className="text-center">
+            <div className="mx-auto bg-primary/10 p-3 rounded-full w-fit mb-2">
+                <CheckCircle className="h-6 w-6 text-primary" />
+            </div>
+          <CardTitle>Enter Class Access Code</CardTitle>
+          <CardDescription>
+            Ask your teacher for the 6-character code shown on their screen or scan the QR code.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col items-center space-y-6 py-8">
+            <InputOTP
+                maxLength={6}
+                value={enteredCode}
+                onChange={(value) => setEnteredCode(value)}
+                onComplete={handleVerifyCode}
+            >
+                <InputOTPGroup>
+                    <InputOTPSlot index={0} />
+                    <InputOTPSlot index={1} />
+                    <InputOTPSlot index={2} />
+                    <InputOTPSlot index={3} />
+                    <InputOTPSlot index={4} />
+                    <InputOTPSlot index={5} />
+                </InputOTPGroup>
+            </InputOTP>
+            <Button 
+                onClick={handleVerifyCode} 
+                className="w-full max-w-[240px] h-12"
+                disabled={enteredCode.length < 6}
+            >
+                Continue to Facial Verification
+            </Button>
+        </CardContent>
+      </Card>
+    );
+  }
 
   if (status === "loading") {
     return (
@@ -180,11 +236,14 @@ export function MarkAttendanceFlow({
               </p>
               <Button
                 onClick={() => {
-                  setStatus("camera");
-                  start();
+                   setStatus("camera");
+                   start();
                 }}
               >
                 Try Again
+              </Button>
+              <Button variant="ghost" onClick={() => setStatus("awaiting_code")} className="ml-2">
+                Back to Code
               </Button>
             </div>
           )}
@@ -208,7 +267,7 @@ export function MarkAttendanceFlow({
             autoPlay
             playsInline
             muted
-            className="w-full aspect-4/3 object-cover"
+            className="w-full aspect-square md:aspect-4/3 object-cover"
           />
           <div
             className={`absolute inset-0 border-4 m-6 rounded-lg transition-colors ${
@@ -240,25 +299,23 @@ export function MarkAttendanceFlow({
           </div>
         )}
 
-        <div className="flex justify-center gap-3">
-          {!isActive ? (
-            <Button onClick={start}>
-              <Camera className="h-4 w-4 mr-2" />
-              Start Camera
-            </Button>
-          ) : (
-            <Button
-              onClick={handleCapture}
-              disabled={!faceDetected || status === "capturing" || status === "verifying"}
-            >
-              {status === "capturing" || status === "verifying" ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              ) : (
-                <CheckCircle className="h-4 w-4 mr-2" />
-              )}
-              Mark My Attendance
-            </Button>
-          )}
+        <div className="flex flex-col gap-3">
+          <Button
+            onClick={handleCapture}
+            size="lg"
+            className="h-12 text-lg"
+            disabled={!faceDetected || status === "capturing" || status === "verifying"}
+          >
+            {status === "capturing" || status === "verifying" ? (
+              <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+            ) : (
+              <CheckCircle className="h-5 w-5 mr-2" />
+            )}
+            Mark My Attendance
+          </Button>
+          <Button variant="outline" onClick={() => setStatus("awaiting_code")}>
+            Back to Code
+          </Button>
         </div>
       </CardContent>
     </Card>

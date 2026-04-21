@@ -1,31 +1,26 @@
 import { redirect } from "next/navigation";
-import { auth } from "@clerk/nextjs/server";
-import { db } from "@/lib/db";
-import { users, courses } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { getSessionUserId, getCurrentUser } from "@/lib/auth";
+import { getDb } from "@/lib/db";
+import { User, Course } from "@/lib/db/schema";
 import { ReportsDashboard } from "@/components/teacher/reports-dashboard";
 
 export default async function ReportsPage() {
-  const { userId } = await auth();
+  const userId = await getSessionUserId();
   if (!userId) redirect("/sign-in");
 
-  const [user] = await db
-    .select()
-    .from(users)
-    .where(eq(users.clerkUserId, userId))
-    .limit(1);
+  await getDb();
+
+  const user = await User.findById(userId);
 
   if (!user || user.role !== "teacher") redirect("/");
 
-  const teacherCourses = await db
-    .select({
-      id: courses.id,
-      name: courses.name,
-      code: courses.code,
-    })
-    .from(courses)
-    .where(eq(courses.teacherId, user.id))
-    .orderBy(courses.name);
+  const coursesDocs = await Course.find({ teacherId: user._id }).sort({ name: 1 }).lean();
+
+  const teacherCourses = coursesDocs.map((c: any) => ({
+    id: c._id.toString(),
+    name: c.name,
+    code: c.code,
+  }));
 
   return (
     <div className="space-y-6">
@@ -39,3 +34,5 @@ export default async function ReportsPage() {
     </div>
   );
 }
+
+

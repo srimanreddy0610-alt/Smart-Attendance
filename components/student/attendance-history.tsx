@@ -23,14 +23,14 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 
 interface Course {
-  courseId: number;
+  courseId: string;
   courseName: string;
   courseCode: string;
 }
 
 interface AttendanceRecord {
-  id: number;
-  sessionId: number;
+  id: string;
+  sessionId: string;
   status: "present" | "absent";
   markedAt: string | null;
   confidenceScore: number | null;
@@ -38,7 +38,7 @@ interface AttendanceRecord {
   sessionDate: string;
   courseName: string;
   courseCode: string;
-  courseId: number;
+  courseId: string;
 }
 
 interface AttendanceHistoryProps {

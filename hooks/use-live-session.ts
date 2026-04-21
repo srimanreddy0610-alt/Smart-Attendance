@@ -6,8 +6,8 @@ import { getPusherClient } from "@/lib/pusher/client";
 import { EVENTS } from "@/lib/pusher/channels";
 
 interface AttendanceRecord {
-  id: number;
-  studentId: number;
+  id: string;
+  studentId: string;
   studentName: string;
   rollNumber: string;
   status: "present" | "absent";
@@ -17,18 +17,19 @@ interface AttendanceRecord {
 }
 
 interface SessionData {
-  id: number;
-  courseId: number;
+  id: string;
+  courseId: string;
   courseName: string;
   startTime: string;
   endTime: string | null;
   status: "active" | "ended";
+  accessCode?: string;
   records: AttendanceRecord[];
   totalStudents: number;
   presentCount: number;
 }
 
-export function useLiveSession(sessionId: number) {
+export function useLiveSession(sessionId: string) {
   const queryClient = useQueryClient();
   const [isEnding, setIsEnding] = useState(false);
 

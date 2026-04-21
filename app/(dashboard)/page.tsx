@@ -1,23 +1,28 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
-import { db } from "@/lib/db";
-import { students } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { getDb } from "@/lib/db";
+import { Student } from "@/lib/db/schema";
 
 export default async function DashboardRoot() {
   const user = await getCurrentUser();
   if (!user) redirect("/sign-in");
 
+  if (user.role === "admin") {
+    redirect("/admin/dashboard");
+  }
+
   if (user.role === "teacher") {
     redirect("/teacher/dashboard");
   }
 
+  if (user.role === "parent") {
+    redirect("/parent/dashboard");
+  }
+
+  await getDb();
+
   // Check if student has completed onboarding
-  const [student] = await db
-    .select()
-    .from(students)
-    .where(eq(students.clerkUserId, user.clerkUserId))
-    .limit(1);
+  const student = await Student.findOne({ user: user._id }).select('_id');
 
   if (!student) {
     redirect("/onboarding");
@@ -25,3 +30,4 @@ export default async function DashboardRoot() {
 
   redirect("/student/dashboard");
 }
+

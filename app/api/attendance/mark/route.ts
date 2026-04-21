@@ -1,14 +1,13 @@
 import { NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
-import { db } from "@/lib/db";
+import { getCurrentUser, getSessionUserId } from "@/lib/auth";
+import { getDb } from "@/lib/db";
 import {
-  attendanceSessions,
-  attendanceRecords,
-  students,
-  users,
-  enrollments,
+  AttendanceSession,
+  AttendanceRecord,
+  Student,
+  User,
+  Enrollment,
 } from "@/lib/db/schema";
-import { eq, and } from "drizzle-orm";
 import { markAttendanceSchema } from "@/lib/validations/attendance";
 import { pusherServer } from "@/lib/pusher/server";
 import { CHANNELS, EVENTS } from "@/lib/pusher/channels";
@@ -23,16 +22,14 @@ function euclideanDistance(a: number[], b: number[]): number {
 
 export async function POST(req: Request) {
   try {
-    const { userId } = await auth();
+    const userId = await getSessionUserId();
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const [user] = await db
-      .select()
-      .from(users)
-      .where(eq(users.clerkUserId, userId))
-      .limit(1);
+    await getDb();
+
+    const user = await User.findById(userId);
 
     if (!user || user.role !== "student") {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -48,20 +45,14 @@ export async function POST(req: Request) {
       );
     }
 
-    const { sessionId, faceDescriptor, confidenceScore, verificationFrames } =
+    const { sessionId, faceDescriptor, confidenceScore, verificationFrames, accessCode } =
       parsed.data;
 
-    // Verify session is active
-    const [session] = await db
-      .select()
-      .from(attendanceSessions)
-      .where(
-        and(
-          eq(attendanceSessions.id, sessionId),
-          eq(attendanceSessions.status, "active")
-        )
-      )
-      .limit(1);
+    // Verify session is active and check access code
+    const session = await AttendanceSession.findOne({
+      _id: sessionId,
+      status: "active"
+    });
 
     if (!session) {
       return NextResponse.json(
@@ -70,12 +61,15 @@ export async function POST(req: Request) {
       );
     }
 
+    if (session.accessCode && session.accessCode.toUpperCase() !== accessCode.toUpperCase()) {
+      return NextResponse.json(
+        { error: "Invalid access code" },
+        { status: 403 }
+      );
+    }
+
     // Get student
-    const [student] = await db
-      .select()
-      .from(students)
-      .where(eq(students.clerkUserId, userId))
-      .limit(1);
+    const student = await Student.findOne({ user: userId });
 
     if (!student) {
       return NextResponse.json(
@@ -85,16 +79,10 @@ export async function POST(req: Request) {
     }
 
     // Verify student is enrolled
-    const [enrollment] = await db
-      .select()
-      .from(enrollments)
-      .where(
-        and(
-          eq(enrollments.courseId, session.courseId),
-          eq(enrollments.studentId, student.id)
-        )
-      )
-      .limit(1);
+    const enrollment = await Enrollment.findOne({
+      courseId: session.courseId,
+      studentId: student._id
+    });
 
     if (!enrollment) {
       return NextResponse.json(
@@ -104,17 +92,11 @@ export async function POST(req: Request) {
     }
 
     // Check if already marked present
-    const [existingRecord] = await db
-      .select()
-      .from(attendanceRecords)
-      .where(
-        and(
-          eq(attendanceRecords.sessionId, sessionId),
-          eq(attendanceRecords.studentId, student.id),
-          eq(attendanceRecords.status, "present")
-        )
-      )
-      .limit(1);
+    const existingRecord = await AttendanceRecord.findOne({
+      sessionId,
+      studentId: student._id,
+      status: "present"
+    });
 
     if (existingRecord) {
       return NextResponse.json(
@@ -150,58 +132,39 @@ export async function POST(req: Request) {
     }
 
     // Upsert attendance record
-    const [existingAbsent] = await db
-      .select()
-      .from(attendanceRecords)
-      .where(
-        and(
-          eq(attendanceRecords.sessionId, sessionId),
-          eq(attendanceRecords.studentId, student.id)
-        )
-      )
-      .limit(1);
-
-    let record;
-    if (existingAbsent) {
-      [record] = await db
-        .update(attendanceRecords)
-        .set({
-          status: "present",
-          markedAt: new Date(),
-          confidenceScore: serverSimilarity,
-          verificationFrames,
-        })
-        .where(eq(attendanceRecords.id, existingAbsent.id))
-        .returning();
-    } else {
-      [record] = await db
-        .insert(attendanceRecords)
-        .values({
-          sessionId,
-          studentId: student.id,
-          status: "present",
-          markedAt: new Date(),
-          confidenceScore: serverSimilarity,
-          verificationFrames,
-        })
-        .returning();
-    }
+    const record = await AttendanceRecord.findOneAndUpdate(
+      {
+        sessionId,
+        studentId: student._id
+      },
+      {
+        status: "present",
+        markedAt: new Date(),
+        confidenceScore: serverSimilarity,
+        verificationFrames,
+      },
+      { new: true, upsert: true }
+    );
 
     // Notify via Pusher
     const studentName = [user.firstName, user.lastName]
       .filter(Boolean)
       .join(" ");
 
-    await pusherServer.trigger(
-      CHANNELS.session(sessionId),
-      EVENTS.ATTENDANCE_MARKED,
-      {
-        studentId: student.id,
-        studentName,
-        rollNumber: student.rollNumber,
-        confidenceScore: serverSimilarity,
-      }
-    );
+    try {
+      await pusherServer.trigger(
+        CHANNELS.session(sessionId.toString()),
+        EVENTS.ATTENDANCE_MARKED,
+        {
+          studentId: student._id.toString(),
+          studentName,
+          rollNumber: student.rollNumber,
+          confidenceScore: serverSimilarity,
+        }
+      );
+    } catch (pusherError) {
+      console.warn("[PUSHER_TRIGGER_ERROR] Skipping student attendance notification:", pusherError);
+    }
 
     return NextResponse.json({
       success: true,
@@ -216,3 +179,5 @@ export async function POST(req: Request) {
     );
   }
 }
+
+

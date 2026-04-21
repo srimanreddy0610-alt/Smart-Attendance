@@ -1,7 +1,6 @@
-import { auth } from "@clerk/nextjs/server";
-import { db } from "@/lib/db";
-import { students } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { getSessionUserId, getCurrentUser } from "@/lib/auth";
+import { getDb } from "@/lib/db";
+import { Student } from "@/lib/db/schema";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -12,7 +11,7 @@ const faceUpdateSchema = z.object({
 
 export async function PUT(req: Request) {
   try {
-    const { userId } = await auth();
+    const userId = await getSessionUserId();
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -27,11 +26,9 @@ export async function PUT(req: Request) {
       );
     }
 
-    const [student] = await db
-      .select()
-      .from(students)
-      .where(eq(students.clerkUserId, userId))
-      .limit(1);
+    await getDb();
+
+    const student = await Student.findOne({ user: userId });
 
     if (!student) {
       return NextResponse.json(
@@ -40,14 +37,14 @@ export async function PUT(req: Request) {
       );
     }
 
-    const [updated] = await db
-      .update(students)
-      .set({
+    const updated = await Student.findByIdAndUpdate(
+      student._id,
+      {
         faceDescriptor: JSON.stringify(parsed.data.faceDescriptor),
         photoUrl: parsed.data.photoUrl,
-      })
-      .where(eq(students.id, student.id))
-      .returning();
+      },
+      { new: true }
+    );
 
     return NextResponse.json(updated);
   } catch (error) {
@@ -58,3 +55,5 @@ export async function PUT(req: Request) {
     );
   }
 }
+
+

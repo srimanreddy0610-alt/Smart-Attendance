@@ -36,7 +36,7 @@ import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 
 interface Course {
-  id: number;
+  id: string;
   name: string;
   code: string;
   department: string;
@@ -60,15 +60,21 @@ export function CourseList({ courses: initialCourses }: { courses: Course[] }) {
   const [isLoading, setIsLoading] = useState(false);
 
   const form = useForm<CourseValues>({
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    resolver: zodResolver(courseSchema as any),
+    resolver: zodResolver(courseSchema),
     defaultValues: {
       name: "",
       code: "",
       department: "",
+      streamId: "",
       semester: 1,
       section: "",
     },
+  });
+
+  const [streams, setStreams] = useState<any[]>([]);
+
+  useState(() => {
+    fetch("/api/streams").then(res => res.json()).then(setStreams).catch(() => {});
   });
 
   async function onSubmit(values: CourseValues) {
@@ -142,6 +148,33 @@ export function CourseList({ courses: initialCourses }: { courses: Course[] }) {
                       <FormControl>
                         <Input placeholder="CS301" {...field} />
                       </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="streamId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Academic Stream</FormLabel>
+                      <Select
+                        onValueChange={field.onChange}
+                        defaultValue={field.value}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select stream" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {streams.map((s) => (
+                            <SelectItem key={s._id} value={s._id}>
+                              {s.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                       <FormMessage />
                     </FormItem>
                   )}

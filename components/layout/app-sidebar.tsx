@@ -9,6 +9,8 @@ import {
   History,
   BarChart3,
   GraduationCap,
+  Calendar,
+  LayoutGrid,
 } from "lucide-react";
 import {
   Sidebar,
@@ -40,9 +42,19 @@ const studentNavItems = [
     icon: History,
   },
   {
+    title: "Weekly Schedule",
+    href: "/student/timetable",
+    icon: Calendar,
+  },
+  {
     title: "Face Enrollment",
     href: "/student/face-enrollment",
     icon: ScanFace,
+  },
+  {
+    title: "Profile",
+    href: "/student/profile",
+    icon: GraduationCap,
   },
 ];
 
@@ -64,14 +76,51 @@ const teacherNavItems = [
   },
 ];
 
+const adminNavItems = [
+  {
+    title: "Overview",
+    href: "/admin/dashboard",
+    icon: LayoutDashboard,
+  },
+  {
+    title: "Teachers",
+    href: "/admin/teachers",
+    icon: GraduationCap,
+  },
+  {
+    title: "Academic Streams",
+    href: "/admin/streams",
+    icon: LayoutGrid,
+  },
+];
+
+const parentNavItems = [
+  {
+    title: "Portal",
+    href: "/parent/dashboard",
+    icon: LayoutDashboard,
+  },
+];
+
 interface AppSidebarProps {
   userRole: string;
 }
 
 export function AppSidebar({ userRole }: AppSidebarProps) {
   const pathname = usePathname();
-  const navItems = userRole === "teacher" ? teacherNavItems : studentNavItems;
-  const roleLabel = userRole === "teacher" ? "Teacher" : "Student";
+  let navItems = studentNavItems;
+  let roleLabel = "Student";
+
+  if (userRole === "teacher") {
+    navItems = teacherNavItems;
+    roleLabel = "Teacher";
+  } else if (userRole === "admin") {
+    navItems = adminNavItems;
+    roleLabel = "Admin";
+  } else if (userRole === "parent") {
+    navItems = parentNavItems;
+    roleLabel = "Parent";
+  }
 
   return (
     <Sidebar>

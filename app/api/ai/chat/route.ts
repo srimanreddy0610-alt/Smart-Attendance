@@ -1,20 +1,19 @@
-import { auth } from "@clerk/nextjs/server";
+import { getSessionUserId, getCurrentUser } from "@/lib/auth";
 import { NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import { db } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import {
-  students,
-  courses,
-  enrollments,
-  attendanceRecords,
-  attendanceSessions,
-  timetable,
-  users,
+  Student,
+  Course,
+  Enrollment,
+  AttendanceRecord,
+  AttendanceSession,
+  Timetable,
+  User,
 } from "@/lib/db/schema";
-import { eq, and, sql } from "drizzle-orm";
 
 export async function POST(req: Request) {
-  const { userId } = await auth();
+  const userId = await getSessionUserId();
   if (!userId)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -23,66 +22,41 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Message required" }, { status: 400 });
   }
 
+  await getDb();
+
   // Fetch student profile + user name
-  const [student] = await db
-    .select()
-    .from(students)
-    .where(eq(students.clerkUserId, userId))
-    .limit(1);
+  const student = await Student.findOne({ user: userId });
 
   if (!student) {
     return NextResponse.json({ error: "Student not found" }, { status: 404 });
   }
 
-  const [userRecord] = await db
-    .select({ firstName: users.firstName, lastName: users.lastName })
-    .from(users)
-    .where(eq(users.clerkUserId, userId))
-    .limit(1);
+  const userRecord = await User.findById(userId);
 
   // Fetch enrolled courses with attendance stats
-  const enrolledCourses = await db
-    .select({
-      courseId: courses.id,
-      courseName: courses.name,
-      courseCode: courses.code,
-      teacherFirstName: users.firstName,
-      teacherLastName: users.lastName,
-    })
-    .from(enrollments)
-    .innerJoin(courses, eq(enrollments.courseId, courses.id))
-    .innerJoin(users, eq(courses.teacherId, users.id))
-    .where(eq(enrollments.studentId, student.id));
+  const enrollments = await Enrollment.find({ studentId: student._id }).populate({
+    path: 'courseId',
+    populate: { path: 'teacherId' }
+  });
 
   const coursesWithStats = await Promise.all(
-    enrolledCourses.map(async (c) => {
-      const [totalResult] = await db
-        .select({ count: sql<number>`COUNT(*)` })
-        .from(attendanceSessions)
-        .where(eq(attendanceSessions.courseId, c.courseId));
+    enrollments.map(async (e: any) => {
+      const c = e.courseId;
+      const teacher = c.teacherId;
 
-      const [presentResult] = await db
-        .select({ count: sql<number>`COUNT(*)` })
-        .from(attendanceRecords)
-        .innerJoin(
-          attendanceSessions,
-          eq(attendanceRecords.sessionId, attendanceSessions.id),
-        )
-        .where(
-          and(
-            eq(attendanceSessions.courseId, c.courseId),
-            eq(attendanceRecords.studentId, student.id),
-            eq(attendanceRecords.status, "present"),
-          ),
-        );
+      const total = await AttendanceSession.countDocuments({ courseId: c._id });
 
-      const total = Number(totalResult?.count ?? 0);
-      const present = Number(presentResult?.count ?? 0);
+      const presentRecords = await AttendanceRecord.find({
+        studentId: student._id,
+        status: "present"
+      }).populate('sessionId');
+      
+      const present = presentRecords.filter((r: any) => r.sessionId?.courseId?.toString() === c._id.toString()).length;
+
       const absent = total - present;
       const percentage = total > 0 ? Math.round((present / total) * 100) : 0;
 
       // How many more classes can be missed and still stay above 75%?
-      // present / (total + future) >= 0.75 → future = (present/0.75) - total
       const safeToMiss =
         total > 0
           ? Math.max(0, Math.floor((present - 0.75 * total) / 0.75))
@@ -95,7 +69,11 @@ export async function POST(req: Request) {
           : 0;
 
       return {
-        ...c,
+        courseId: c._id,
+        courseName: c.name,
+        courseCode: c.code,
+        teacherFirstName: teacher?.firstName,
+        teacherLastName: teacher?.lastName,
         total,
         present,
         absent,
@@ -111,30 +89,21 @@ export async function POST(req: Request) {
   // Today's schedule
   const today = new Date().getDay();
   const dayOfWeek = today === 0 ? 7 : today;
-  const courseIds = enrolledCourses.map((c) => c.courseId);
+  const courseIds = enrollments.map((e: any) => e.courseId._id);
 
-  const todaysClasses =
-    courseIds.length > 0
-      ? await db
-          .select({
-            courseName: courses.name,
-            startTime: timetable.startTime,
-            endTime: timetable.endTime,
-            roomNumber: timetable.roomNumber,
-          })
-          .from(timetable)
-          .innerJoin(courses, eq(timetable.courseId, courses.id))
-          .where(
-            and(
-              eq(timetable.dayOfWeek, dayOfWeek),
-              sql`${timetable.courseId} IN (${sql.join(
-                courseIds.map((id) => sql`${id}`),
-                sql`, `,
-              )})`,
-            ),
-          )
-          .orderBy(timetable.startTime)
-      : [];
+  const todaysClasses = courseIds.length > 0 
+    ? await Timetable.find({
+        dayOfWeek,
+        courseId: { $in: courseIds }
+    }).populate('courseId').sort({ startTime: 1 })
+    : [];
+
+  const formattedClasses = todaysClasses.map((t: any) => ({
+    courseName: t.courseId?.name,
+    startTime: t.startTime,
+    endTime: t.endTime,
+    roomNumber: t.roomNumber,
+  }));
 
   // Build context for Gemini
   const today_date = new Date().toLocaleDateString("en-US", {
@@ -160,8 +129,8 @@ export async function POST(req: Request) {
     .join("\n");
 
   const scheduleInfo =
-    todaysClasses.length > 0
-      ? todaysClasses
+    formattedClasses.length > 0
+      ? formattedClasses
           .map(
             (t) =>
               `- ${t.courseName}: ${t.startTime}–${t.endTime}${t.roomNumber ? ` in ${t.roomNumber}` : ""}`,
@@ -218,3 +187,5 @@ Your role:
 
   return NextResponse.json({ response });
 }
+
+

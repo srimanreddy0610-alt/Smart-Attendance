@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
-import { db } from "@/lib/db";
-import { courses, users, enrollments, timetable } from "@/lib/db/schema";
-import { eq, and, sql } from "drizzle-orm";
+import { getCurrentUser } from "@/lib/auth";
+import { getDb } from "@/lib/db";
+import { Course, User, Enrollment, Timetable } from "@/lib/db/schema";
 import { courseSchema } from "@/lib/validations/course";
 
 export async function GET(
@@ -10,44 +9,51 @@ export async function GET(
   { params }: { params: Promise<{ courseId: string }> }
 ) {
   try {
-    const { userId } = await auth();
+    const user = await getCurrentUser();
+  const userId = user?._id?.toString();
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const { courseId } = await params;
+    await getDb();
 
-    const [course] = await db
-      .select({
-        id: courses.id,
-        name: courses.name,
-        code: courses.code,
-        department: courses.department,
-        semester: courses.semester,
-        section: courses.section,
-        teacherId: courses.teacherId,
-        createdAt: courses.createdAt,
-        teacherName: sql<string>`CONCAT(${users.firstName}, ' ', ${users.lastName})`.as("teacher_name"),
-        studentCount: sql<number>`(
-          SELECT COUNT(*) FROM enrollments WHERE enrollments.course_id = ${courses.id}
-        )`.as("student_count"),
-      })
-      .from(courses)
-      .innerJoin(users, eq(courses.teacherId, users.id))
-      .where(eq(courses.id, parseInt(courseId)))
-      .limit(1);
+    const course = await Course.findById(courseId).populate({
+      path: 'teacherId',
+      select: 'firstName lastName'
+    }).lean();
 
     if (!course) {
       return NextResponse.json({ error: "Course not found" }, { status: 404 });
     }
 
-    const timetableEntries = await db
-      .select()
-      .from(timetable)
-      .where(eq(timetable.courseId, parseInt(courseId)))
-      .orderBy(timetable.dayOfWeek, timetable.startTime);
+    const studentCount = await Enrollment.countDocuments({ courseId: course._id });
+    
+    const teacher = course.teacherId as any;
 
-    return NextResponse.json({ ...course, timetable: timetableEntries });
+    const formattedCourse = {
+      id: course._id,
+      name: course.name,
+      code: course.code,
+      department: course.department,
+      semester: course.semester,
+      section: course.section,
+      teacherId: teacher?._id,
+      createdAt: course.createdAt,
+      teacherName: teacher ? `${teacher.firstName} ${teacher.lastName}` : "Unknown",
+      studentCount,
+    };
+
+    const timetableEntries = await Timetable.find({ courseId: course._id })
+      .sort({ dayOfWeek: 1, startTime: 1 })
+      .lean();
+
+    const formattedTable = timetableEntries.map((t: any) => ({
+      ...t,
+      id: t._id,
+    }));
+
+    return NextResponse.json({ ...formattedCourse, timetable: formattedTable });
   } catch (error) {
     console.error("[COURSE_GET]", error);
     return NextResponse.json(
@@ -62,29 +68,25 @@ export async function PUT(
   { params }: { params: Promise<{ courseId: string }> }
 ) {
   try {
-    const { userId } = await auth();
+    const user = await getCurrentUser();
+  const userId = user?._id?.toString();
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const [user] = await db
-      .select()
-      .from(users)
-      .where(eq(users.clerkUserId, userId))
-      .limit(1);
+    await getDb();
+    
+    const user = await User.findById(userId);
 
     if (!user || user.role !== "teacher") {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     const { courseId } = await params;
-    const [course] = await db
-      .select()
-      .from(courses)
-      .where(
-        and(eq(courses.id, parseInt(courseId)), eq(courses.teacherId, user.id))
-      )
-      .limit(1);
+    const course = await Course.findOne({
+      _id: courseId,
+      teacherId: user._id
+    });
 
     if (!course) {
       return NextResponse.json({ error: "Course not found" }, { status: 404 });
@@ -100,11 +102,7 @@ export async function PUT(
       );
     }
 
-    const [updated] = await db
-      .update(courses)
-      .set(parsed.data)
-      .where(eq(courses.id, parseInt(courseId)))
-      .returning();
+    const updated = await Course.findByIdAndUpdate(courseId, parsed.data, { new: true });
 
     return NextResponse.json(updated);
   } catch (error) {
@@ -121,35 +119,31 @@ export async function DELETE(
   { params }: { params: Promise<{ courseId: string }> }
 ) {
   try {
-    const { userId } = await auth();
+    const user = await getCurrentUser();
+  const userId = user?._id?.toString();
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const [user] = await db
-      .select()
-      .from(users)
-      .where(eq(users.clerkUserId, userId))
-      .limit(1);
+    await getDb();
+
+    const user = await User.findById(userId);
 
     if (!user || user.role !== "teacher") {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     const { courseId } = await params;
-    const [course] = await db
-      .select()
-      .from(courses)
-      .where(
-        and(eq(courses.id, parseInt(courseId)), eq(courses.teacherId, user.id))
-      )
-      .limit(1);
+    const course = await Course.findOne({
+      _id: courseId,
+      teacherId: user._id
+    });
 
     if (!course) {
       return NextResponse.json({ error: "Course not found" }, { status: 404 });
     }
 
-    await db.delete(courses).where(eq(courses.id, parseInt(courseId)));
+    await Course.findByIdAndDelete(courseId);
 
     return NextResponse.json({ success: true });
   } catch (error) {

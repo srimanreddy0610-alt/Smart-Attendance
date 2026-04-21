@@ -1,60 +1,31 @@
-import { auth, clerkClient } from "@clerk/nextjs/server";
-import { db } from "@/lib/db";
-import { users, students } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { cookies } from "next/headers";
+import { getDb } from "@/lib/db";
+import { User, Student } from "@/lib/db/schema";
+import { decrypt } from "./session";
 
 export async function getCurrentUser() {
-  const { userId } = await auth();
-  if (!userId) return null;
+  await getDb();
+  
+  const cookieStore = await cookies();
+  const session = cookieStore.get("session")?.value;
+  const payload = await decrypt(session);
 
-  const [user] = await db
-    .select()
-    .from(users)
-    .where(eq(users.clerkUserId, userId))
-    .limit(1);
-
-  if (user) return user;
-
-  // User is authenticated with Clerk but not yet in DB (webhook may be delayed).
-  // Auto-sync from Clerk to avoid requiring a manual page refresh.
-  try {
-    const client = await clerkClient();
-    const clerkUser = await client.users.getUser(userId);
-    const email = clerkUser.emailAddresses[0]?.emailAddress ?? "";
-    const teacherEmails = (process.env.TEACHER_EMAILS ?? "")
-      .split(",")
-      .map((e) => e.trim().toLowerCase())
-      .filter(Boolean);
-    const role: "teacher" | "student" = teacherEmails.includes(
-      email.toLowerCase()
-    )
-      ? "teacher"
-      : "student";
-
-    const [newUser] = await db
-      .insert(users)
-      .values({
-        clerkUserId: userId,
-        email,
-        firstName: clerkUser.firstName,
-        lastName: clerkUser.lastName,
-        role,
-      })
-      .onConflictDoNothing()
-      .returning();
-
-    if (newUser) return newUser;
-
-    // If onConflictDoNothing returned nothing, the webhook beat us - re-fetch
-    const [existing] = await db
-      .select()
-      .from(users)
-      .where(eq(users.clerkUserId, userId))
-      .limit(1);
-    return existing ?? null;
-  } catch {
+  if (!payload?.userId) {
+    // Check for development bypass if needed, but let's stick to session for "simple" auth
     return null;
   }
+
+  const user = await User.findById(payload.userId).select("-password");
+  if (!user) return null;
+
+  return JSON.parse(JSON.stringify(user.toObject()));
+}
+
+export async function getSessionUserId() {
+  const cookieStore = await cookies();
+  const session = cookieStore.get("session")?.value;
+  const payload = await decrypt(session);
+  return (payload?.userId as string) || null;
 }
 
 export async function requireUser() {
@@ -77,12 +48,22 @@ export async function requireStudent() {
   return user;
 }
 
-export async function getStudentProfile(clerkUserId: string) {
-  const [student] = await db
-    .select()
-    .from(students)
-    .where(eq(students.clerkUserId, clerkUserId))
-    .limit(1);
+export async function requireAdmin() {
+  const user = await requireUser();
+  if (user.role !== "admin")
+    throw new Error("Forbidden: Admin role required");
+  return user;
+}
 
-  return student ?? null;
+export async function requireParent() {
+  const user = await requireUser();
+  if (user.role !== "parent")
+    throw new Error("Forbidden: Parent role required");
+  return user;
+}
+
+export async function getStudentProfile(userId: string) {
+  await getDb();
+  const student = await Student.findOne({ user: userId });
+  return student?.toObject() ?? null;
 }

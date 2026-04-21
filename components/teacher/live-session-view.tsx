@@ -12,6 +12,7 @@ import {
   StopCircle,
   Loader2,
   UserCheck,
+  Activity,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -30,12 +31,13 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
+  DialogTrigger,
 } from "@/components/ui/dialog";
 import { useLiveSession } from "@/hooks/use-live-session";
 
 interface LiveSessionViewProps {
-  sessionId: number;
-  courseId: number;
+  sessionId: string;
+  courseId: string;
   courseName: string;
   startTime: string;
   endTime: string | null;
@@ -55,7 +57,7 @@ export function LiveSessionView({
     useLiveSession(sessionId);
   const [isEndingSession, setIsEndingSession] = useState(false);
   const [manualOverrideStudent, setManualOverrideStudent] = useState<{
-    studentId: number;
+    studentId: string;
     studentName: string;
   } | null>(null);
   const [timeRemaining, setTimeRemaining] = useState("");
@@ -134,7 +136,7 @@ export function LiveSessionView({
   return (
     <div className="space-y-6">
       {/* Stats Row */}
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-5">
         <div className="rounded-xl border bg-card p-5">
           <p className="text-sm font-medium text-muted-foreground mb-3">Status</p>
           <Badge
@@ -144,6 +146,45 @@ export function LiveSessionView({
             {currentStatus === "active" ? "● LIVE" : "ENDED"}
           </Badge>
         </div>
+
+        {/* Access Code Card */}
+        <div className="rounded-xl border border-primary/20 bg-primary/5 p-5 shadow-sm">
+          <p className="text-sm font-medium text-primary mb-2">Access Code</p>
+          <div className="flex items-center justify-between">
+            <span className="text-3xl font-black tracking-widest text-primary font-mono">
+              {session?.accessCode || "------"}
+            </span>
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button size="icon" variant="ghost" className="h-8 w-8 hover:bg-primary/10">
+                  <span className="sr-only">Show QR</span>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5"><rect width="5" height="5" x="3" y="3" rx="1"/><rect width="5" height="5" x="16" y="3" rx="1"/><rect width="5" height="5" x="3" y="16" rx="1"/><path d="M21 16h-3a2 2 0 0 0-2 2v3"/><path d="M21 21v.01"/><path d="M12 7v3a2 2 0 0 1-2 2H7"/><path d="M3 12h.01"/><path d="M12 3h.01"/><path d="M12 16v.01"/><path d="M16 12h1"/><path d="M21 12v.01"/><path d="M12 21v-1"/></svg>
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Scan to Mark Attendance</DialogTitle>
+                  <DialogDescription>
+                    Students can scan this QR code or enter the code: <strong>{session?.accessCode}</strong>
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="flex flex-col items-center justify-center p-6 bg-white rounded-xl">
+                    {session?.accessCode && (
+                        <img 
+                            src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${session.accessCode}`} 
+                            alt="QR Code" 
+                            className="w-64 h-64 shadow-lg ring-4 ring-primary/20 p-2"
+                        />
+                    )}
+                    <p className="mt-4 text-2xl font-black font-mono tracking-[0.5em] text-black italic bg-amber-300 px-4 py-1 rounded">
+                        {session?.accessCode}
+                    </p>
+                </div>
+              </DialogContent>
+            </Dialog>
+          </div>
+        </div>
+
         <div className="rounded-xl border bg-card p-5">
           <div className="flex items-center justify-between mb-3">
             <p className="text-sm font-medium text-muted-foreground">Present</p>
@@ -175,21 +216,41 @@ export function LiveSessionView({
         </div>
       </div>
 
-      {/* End Session Button */}
-      {currentStatus === "active" && (
-        <Button
-          variant="destructive"
-          onClick={handleEndSession}
-          disabled={isEndingSession}
-        >
-          {isEndingSession ? (
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          ) : (
-            <StopCircle className="mr-2 h-4 w-4" />
+        <div className="flex gap-3">
+          {currentStatus === "active" && (
+            <>
+              <Button
+                variant="destructive"
+                onClick={handleEndSession}
+                disabled={isEndingSession}
+              >
+                {isEndingSession ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <StopCircle className="mr-2 h-4 w-4" />
+                )}
+                End Session
+              </Button>
+              <Button
+                variant="outline"
+                className="border-primary text-primary hover:bg-primary/5"
+                onClick={async () => {
+                   toast.promise(
+                     fetch(`/api/attendance/sessions/${sessionId}/notify`, { method: "POST" }),
+                     {
+                       loading: "Sending notifications...",
+                       success: "Notifications sent to students!",
+                       error: "Failed to send notifications"
+                     }
+                   )
+                }}
+              >
+                <Activity className="mr-2 h-4 w-4" />
+                Notify Students
+              </Button>
+            </>
           )}
-          End Session
-        </Button>
-      )}
+        </div>
 
       {/* Student Attendance Table */}
       <div className="rounded-xl border bg-card">

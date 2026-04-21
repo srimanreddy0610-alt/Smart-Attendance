@@ -1,8 +1,7 @@
 import { redirect } from "next/navigation";
-import { auth } from "@clerk/nextjs/server";
-import { db } from "@/lib/db";
-import { users, attendanceSessions, courses } from "@/lib/db/schema";
-import { eq, and } from "drizzle-orm";
+import { getCurrentUser } from "@/lib/auth";
+import { getDb } from "@/lib/db";
+import { User, AttendanceSession } from "@/lib/db/schema";
 import { LiveSessionView } from "@/components/teacher/live-session-view";
 
 export default async function LiveSessionPage({
@@ -10,53 +9,39 @@ export default async function LiveSessionPage({
 }: {
   params: Promise<{ courseId: string; sessionId: string }>;
 }) {
-  const { userId } = await auth();
+  const sessionUser = await getCurrentUser();
+  const userId = sessionUser?._id?.toString();
   if (!userId) redirect("/sign-in");
 
-  const [user] = await db
-    .select()
-    .from(users)
-    .where(eq(users.clerkUserId, userId))
-    .limit(1);
+  await getDb();
+
+  const user = await User.findById(userId);
 
   if (!user || user.role !== "teacher") redirect("/");
 
   const { courseId, sessionId } = await params;
 
-  const [session] = await db
-    .select({
-      id: attendanceSessions.id,
-      courseId: attendanceSessions.courseId,
-      courseName: courses.name,
-      courseCode: courses.code,
-      startTime: attendanceSessions.startTime,
-      endTime: attendanceSessions.endTime,
-      status: attendanceSessions.status,
-    })
-    .from(attendanceSessions)
-    .innerJoin(courses, eq(attendanceSessions.courseId, courses.id))
-    .where(
-      and(
-        eq(attendanceSessions.id, parseInt(sessionId)),
-        eq(attendanceSessions.teacherId, user.id)
-      )
-    )
-    .limit(1);
+  const session = await AttendanceSession.findOne({
+    _id: sessionId,
+    teacherId: user._id
+  }).populate('courseId');
 
   if (!session) redirect("/teacher/courses");
+
+  const course = session.courseId as any;
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Live Attendance</h1>
         <p className="text-muted-foreground">
-          {session.courseName} ({session.courseCode})
+          {course.name} ({course.code})
         </p>
       </div>
       <LiveSessionView
-        sessionId={session.id}
-        courseId={parseInt(courseId)}
-        courseName={session.courseName}
+        sessionId={session._id.toString()}
+        courseId={courseId}
+        courseName={course.name}
         startTime={session.startTime.toISOString()}
         endTime={session.endTime?.toISOString() ?? null}
         initialStatus={session.status}

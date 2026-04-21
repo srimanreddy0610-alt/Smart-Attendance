@@ -268,61 +268,81 @@ export function FaceEnrollmentWizard({
   // Webcam + processing view (video stays mounted so captureMultipleFrames works)
   if (step === "webcam" || step === "processing") {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Take Photo</CardTitle>
+      <Card className="border-border/50 shadow-2xl overflow-hidden bg-card/50 backdrop-blur-md">
+        <CardHeader className="text-center pb-2">
+          <CardTitle className="text-xl">Camera View</CardTitle>
           <CardDescription>
-            Position your face in the center of the frame
+            Center your face within the circle
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="relative w-full bg-black rounded-lg overflow-hidden">
+        <CardContent className="p-0">
+          <div className="relative aspect-square md:aspect-[4/3] w-full bg-black overflow-hidden flex items-center justify-center">
             <video
               ref={videoRef}
               autoPlay
               playsInline
               muted
-              className={`w-full aspect-4/3 object-cover ${step === "processing" ? "opacity-50" : ""}`}
+              className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-500 ${step === "processing" ? "opacity-30" : "opacity-100"}`}
             />
-            {step === "webcam" && (
-              <div className="absolute inset-0 border-2 border-dashed border-white/30 m-8 rounded-full" />
-            )}
+            
+            {/* Professional Guided Frame */}
+            <div className="relative z-10 flex flex-col items-center">
+                <div className={`w-64 h-64 md:w-80 md:h-80 border-4 border-dashed rounded-full transition-all duration-300 ${step === "processing" ? "border-primary scale-110" : "border-white/50"}`}>
+                    <div className="absolute inset-0 rounded-full bg-white/5 hidden" />
+                </div>
+                {step === "webcam" && (
+                     <p className="mt-4 text-xs font-medium text-white/70 bg-black/50 px-3 py-1 rounded-full backdrop-blur-sm">
+                        Detecting Face...
+                     </p>
+                )}
+            </div>
+
             {step === "processing" && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/40">
-                <Loader2 className="h-10 w-10 animate-spin text-white mb-4" />
-                <p className="font-medium text-white mb-2">{statusMessage}</p>
-                <Progress value={progress} className="w-64" />
+              <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-black/40 backdrop-blur-[2px]">
+                <div className="relative h-24 w-24 mb-6">
+                    <Loader2 className="absolute inset-0 h-full w-full animate-spin text-primary opacity-20" />
+                    <div className="absolute inset-0 flex items-center justify-center font-bold text-white">
+                        {progress}%
+                    </div>
+                </div>
+                <p className="font-bold text-xl text-white tracking-tight mb-2">{statusMessage}</p>
+                <Progress value={progress} className="w-64 h-1.5" />
               </div>
             )}
           </div>
+          
           <canvas ref={canvasRef} className="hidden" />
-          {webcamError && (
-            <div className="flex items-center gap-2 text-destructive text-sm">
-              <AlertCircle className="h-4 w-4" />
-              <span>{webcamError}</span>
-            </div>
-          )}
-          {step === "webcam" && (
-            <div className="flex justify-center gap-3">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  stop();
-                  setStep("choose");
-                }}
-              >
-                Cancel
-              </Button>
-              {!isActive ? (
-                <Button onClick={start}>Start Camera</Button>
-              ) : (
-                <Button onClick={handleWebcamCapture}>
-                  <Camera className="h-4 w-4 mr-2" />
-                  Capture
+          
+          <div className="p-6 bg-muted/30">
+            {webcamError && (
+              <div className="flex items-center gap-2 text-destructive text-sm mb-4 justify-center">
+                <AlertCircle className="h-4 w-4" />
+                <span>{webcamError}</span>
+              </div>
+            )}
+            {step === "webcam" && (
+              <div className="flex justify-center gap-4">
+                <Button
+                  variant="outline"
+                  className="h-11 px-6 font-medium"
+                  onClick={() => {
+                    stop();
+                    setStep("choose");
+                  }}
+                >
+                  Cancel
                 </Button>
-              )}
-            </div>
-          )}
+                {!isActive ? (
+                  <Button onClick={start} className="h-11 px-6 shadow-lg shadow-primary/20">Start Camera</Button>
+                ) : (
+                  <Button onClick={handleWebcamCapture} className="h-11 px-6 shadow-lg shadow-primary/20">
+                    <Camera className="h-5 w-5 mr-2" />
+                    Capture Face
+                  </Button>
+                )}
+              </div>
+            )}
+          </div>
         </CardContent>
       </Card>
     );
@@ -351,32 +371,36 @@ export function FaceEnrollmentWizard({
         </Card>
       )}
 
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid gap-4 sm:grid-cols-2">
         <Card
-          className="cursor-pointer hover:border-primary transition-colors"
+          className="cursor-pointer hover:border-primary/50 transition-all hover:bg-primary/5 group"
           onClick={() => {
             setStep("webcam");
             start();
           }}
         >
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <Camera className="h-16 w-16 mb-4 text-primary" />
-            <h3 className="text-lg font-semibold">Take Photo (Webcam)</h3>
+          <CardContent className="flex flex-col items-center justify-center py-8">
+            <div className="bg-primary/10 p-3 rounded-2xl group-hover:bg-primary group-hover:text-primary-foreground transition-colors mb-4">
+               <Camera className="h-8 w-8" />
+            </div>
+            <h3 className="font-semibold text-lg">Use Camera</h3>
             <p className="text-sm text-muted-foreground text-center mt-1">
-              Use your camera to capture a photo
+              Capture photo from webcam
             </p>
           </CardContent>
         </Card>
 
         <Card
-          className="cursor-pointer hover:border-primary transition-colors"
+          className="cursor-pointer hover:border-primary/50 transition-all hover:bg-primary/5 group"
           onClick={() => fileInputRef.current?.click()}
         >
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <Upload className="h-16 w-16 mb-4 text-primary" />
-            <h3 className="text-lg font-semibold">Upload Photo</h3>
+          <CardContent className="flex flex-col items-center justify-center py-8">
+            <div className="bg-primary/10 p-3 rounded-2xl group-hover:bg-primary group-hover:text-primary-foreground transition-colors mb-4">
+              <Upload className="h-8 w-8" />
+            </div>
+            <h3 className="font-semibold text-lg">Upload Photo</h3>
             <p className="text-sm text-muted-foreground text-center mt-1">
-              Select an image file from your device
+              Select file from device
             </p>
           </CardContent>
         </Card>

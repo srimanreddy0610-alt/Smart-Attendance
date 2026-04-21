@@ -1,45 +1,33 @@
-"use client";
-
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { useAuth } from "@clerk/nextjs";
-import { Loader2 } from "lucide-react";
+import { redirect } from "next/navigation";
+import { getCurrentUser } from "@/lib/auth";
 
 /**
- * Client-side smart redirect hub.
- * Waits for Clerk to settle, then calls the server to determine
- * where to send the user (teacher dashboard / student dashboard / onboarding).
+ * Server-side smart redirect hub.
+ * Determines where to send the user based on their role and profile state.
  */
-export default function DashboardRedirectPage() {
-  const { isLoaded, isSignedIn } = useAuth();
-  const router = useRouter();
+export default async function DashboardRedirectPage() {
+  const user = await getCurrentUser();
 
-  useEffect(() => {
-    if (!isLoaded) return;
+  if (!user) {
+    redirect("/sign-in");
+  }
 
-    if (!isSignedIn) {
-      router.replace("/sign-in");
-      return;
-    }
+  if (user.role === "teacher") {
+    redirect("/teacher/dashboard");
+  }
 
-    // Ask the server where this user should go
-    fetch("/api/auth/redirect-destination")
-      .then((res) => res.json())
-      .then(({ destination }) => {
-        router.replace(destination);
-      })
-      .catch(() => {
-        // Fallback: just go to sign-in on any error
-        router.replace("/sign-in");
-      });
-  }, [isLoaded, isSignedIn, router]);
+  if (user.role === "student") {
+    redirect("/student/dashboard");
+  }
 
-  return (
-    <div className="flex min-h-screen items-center justify-center">
-      <div className="flex flex-col items-center gap-3 text-muted-foreground">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <p className="text-sm">Redirecting you...</p>
-      </div>
-    </div>
-  );
+  if (user.role === "admin") {
+    redirect("/admin/dashboard");
+  }
+
+  if (user.role === "parent") {
+    redirect("/parent/dashboard");
+  }
+
+  // Fallback
+  redirect("/sign-in");
 }

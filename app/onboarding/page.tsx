@@ -1,33 +1,33 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
-import { db } from "@/lib/db";
-import { students } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
-import { OnboardingForm } from "@/components/onboarding/onboarding-form";
+import { getDb } from "@/lib/db";
+import { Student } from "@/lib/db/schema";
+import { OnboardingView } from "@/components/onboarding/onboarding-view";
 
 export default async function OnboardingPage() {
   const user = await getCurrentUser();
-  if (!user) redirect("/sign-in");
+  if (!user) {
+    console.log("[ONBOARDING_PAGE] No user found, redirecting to sign-in");
+    redirect("/sign-in");
+  }
 
+  console.log(`[ONBOARDING_PAGE] Rendering for user ${user._id}, role: ${user.role}`);
+
+  // If role is already set to something other than student, redirect them to their dashboard
+  // Unless they landed here specifically to change it (optional logic)
   if (user.role === "teacher") redirect("/teacher/dashboard");
+  if (user.role === "admin") redirect("/admin/dashboard");
+  if (user.role === "parent") redirect("/parent/dashboard");
 
-  const [existingStudent] = await db
-    .select()
-    .from(students)
-    .where(eq(students.clerkUserId, user.clerkUserId))
-    .limit(1);
+  await getDb();
 
-  if (existingStudent) redirect("/student/dashboard");
+  const existingStudent = await Student.findOne({ user: user._id }).select('_id');
 
-  return (
-    <div className="relative flex min-h-screen items-center justify-center p-4 overflow-hidden">
-      {/* Background blobs */}
-      <div className="pointer-events-none absolute inset-0 -z-10">
-        <div className="absolute -top-40 -left-40 h-80 w-80 rounded-full bg-primary/10 blur-3xl" />
-        <div className="absolute -bottom-40 -right-40 h-80 w-80 rounded-full bg-primary/10 blur-3xl" />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-64 w-64 rounded-full bg-blue-500/5 blur-3xl" />
-      </div>
-      <OnboardingForm />
-    </div>
-  );
+  if (existingStudent) {
+    console.log("[ONBOARDING_PAGE] Student profile already exists, redirecting to student dashboard");
+    redirect("/student/dashboard");
+  }
+
+  return <OnboardingView />;
 }
+

@@ -1,75 +1,61 @@
 import { redirect } from "next/navigation";
-import { auth } from "@clerk/nextjs/server";
-import { db } from "@/lib/db";
-import {
-  students,
-  enrollments,
-  courses,
-  users,
-  attendanceRecords,
-  attendanceSessions,
-} from "@/lib/db/schema";
-import { eq, and, sql } from "drizzle-orm";
+import { getSessionUserId, getCurrentUser } from "@/lib/auth";
+import { getDb } from "@/lib/db";
+import { Student, Enrollment, AttendanceRecord, AttendanceSession } from "@/lib/db/schema";
 import { Badge } from "@/components/ui/badge";
 import { BookOpen, User, GraduationCap } from "lucide-react";
 
 export default async function StudentCoursesPage() {
-  const { userId } = await auth();
+  const userId = await getSessionUserId();
   if (!userId) redirect("/sign-in");
 
-  const [student] = await db
-    .select()
-    .from(students)
-    .where(eq(students.clerkUserId, userId))
-    .limit(1);
+  await getDb();
+
+  const student = await Student.findOne({ user: userId });
 
   if (!student) redirect("/onboarding");
 
-  const enrolledCourses = await db
-    .select({
-      courseId: courses.id,
-      courseName: courses.name,
-      courseCode: courses.code,
-      department: courses.department,
-      semester: courses.semester,
-      section: courses.section,
-      teacherFirstName: users.firstName,
-      teacherLastName: users.lastName,
-    })
-    .from(enrollments)
-    .innerJoin(courses, eq(enrollments.courseId, courses.id))
-    .innerJoin(users, eq(courses.teacherId, users.id))
-    .where(eq(enrollments.studentId, student.id))
-    .orderBy(courses.name);
+  const enrollmentsList = await Enrollment.find({ studentId: student._id }).populate({
+    path: 'courseId',
+    populate: { path: 'teacherId' }
+  }).lean();
+
+  const enrolledCourses = enrollmentsList.map((e: any) => {
+    const c = e.courseId as any;
+    const teacher = c?.teacherId as any;
+    return {
+      courseId: c?._id.toString(),
+      courseName: c?.name,
+      courseCode: c?.code,
+      department: c?.department,
+      semester: c?.semester,
+      section: c?.section,
+      teacherFirstName: teacher?.firstName,
+      teacherLastName: teacher?.lastName,
+    };
+  }).sort((a: any, b: any) => (a.courseName || "").localeCompare(b.courseName || ""));
 
   // Get attendance percentage per course
   const coursesWithAttendance = await Promise.all(
     enrolledCourses.map(async (c) => {
-      const totalSessions = await db
-        .select({ count: sql<number>`COUNT(*)`.as("count") })
-        .from(attendanceSessions)
-        .where(eq(attendanceSessions.courseId, c.courseId));
+      const total = await AttendanceSession.countDocuments({ courseId: c.courseId });
 
-      const presentCount = await db
-        .select({ count: sql<number>`COUNT(*)`.as("count") })
-        .from(attendanceRecords)
-        .innerJoin(
-          attendanceSessions,
-          eq(attendanceRecords.sessionId, attendanceSessions.id)
-        )
-        .where(
-          and(
-            eq(attendanceSessions.courseId, c.courseId),
-            eq(attendanceRecords.studentId, student.id),
-            eq(attendanceRecords.status, "present")
-          )
-        );
+      const presentRecords = await AttendanceRecord.find({
+        studentId: student._id,
+        status: "present"
+      }).populate('sessionId');
+      
+      const present = presentRecords.filter((r: any) => r.sessionId?.courseId?.toString() === c.courseId.toString()).length;
 
-      const total = Number(totalSessions[0]?.count ?? 0);
-      const present = Number(presentCount[0]?.count ?? 0);
       const percentage = total > 0 ? Math.round((present / total) * 100) : 0;
 
-      return { ...c, total, present, percentage };
+      return { 
+        ...c, 
+        courseId: c.courseId.toString(),
+        total, 
+        present, 
+        percentage 
+      };
     })
   );
 
@@ -131,3 +117,5 @@ export default async function StudentCoursesPage() {
     </div>
   );
 }
+
+
