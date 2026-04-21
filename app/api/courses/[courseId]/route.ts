@@ -29,7 +29,7 @@ export async function GET(
 
     const studentCount = await Enrollment.countDocuments({ courseId: course._id });
     
-    const teacher = course.teacherId as any;
+    const teacher = course.teacherId as unknown as { _id: string; firstName: string; lastName: string } | null;
 
     const formattedCourse = {
       id: course._id,
@@ -48,10 +48,13 @@ export async function GET(
       .sort({ dayOfWeek: 1, startTime: 1 })
       .lean();
 
-    const formattedTable = timetableEntries.map((t: any) => ({
-      ...t,
-      id: t._id,
-    }));
+    const formattedTable = timetableEntries.map((t: unknown) => {
+      const entry = t as { [key: string]: unknown; _id: unknown };
+      return {
+        ...entry,
+        id: entry._id,
+      };
+    });
 
     return NextResponse.json({ ...formattedCourse, timetable: formattedTable });
   } catch (error) {

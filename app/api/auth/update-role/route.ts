@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { getCurrentUser, getSessionUserId } from "@/lib/auth";
 import { getDb } from "@/lib/db";
 import { User } from "@/lib/db/schema";
-import { clerkClient } from "@clerk/nextjs";
 
 export async function POST(req: Request) {
   try {
