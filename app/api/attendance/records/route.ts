@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
+import { getCurrentUser, getSessionUserId } from "@/lib/auth";
 import { getDb } from "@/lib/db";
 import {
   AttendanceRecord,
@@ -11,7 +11,7 @@ import {
 
 export async function GET(req: Request) {
   try {
-    const { userId } = await auth();
+    const userId = await getSessionUserId();
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -24,7 +24,7 @@ export async function GET(req: Request) {
 
     await getDb();
 
-    const user = await User.findOne({ clerkUserId: userId });
+    const user = await User.findById(userId);
 
     if (!user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
@@ -35,7 +35,7 @@ export async function GET(req: Request) {
 
     // If student, restrict to their own records
     if (user.role === "student") {
-      const student = await Student.findOne({ clerkUserId: userId });
+      const student = await Student.findOne({ user: userId });
 
       if (!student) {
         return NextResponse.json([]);
@@ -109,3 +109,4 @@ export async function GET(req: Request) {
     );
   }
 }
+

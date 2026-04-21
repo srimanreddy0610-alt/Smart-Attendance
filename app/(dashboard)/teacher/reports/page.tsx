@@ -1,16 +1,16 @@
 import { redirect } from "next/navigation";
-import { auth } from "@clerk/nextjs/server";
+import { getSessionUserId, getCurrentUser } from "@/lib/auth";
 import { getDb } from "@/lib/db";
 import { User, Course } from "@/lib/db/schema";
 import { ReportsDashboard } from "@/components/teacher/reports-dashboard";
 
 export default async function ReportsPage() {
-  const { userId } = await auth();
+  const userId = await getSessionUserId();
   if (!userId) redirect("/sign-in");
 
   await getDb();
 
-  const user = await User.findOne({ clerkUserId: userId });
+  const user = await User.findById(userId);
 
   if (!user || user.role !== "teacher") redirect("/");
 
@@ -34,3 +34,5 @@ export default async function ReportsPage() {
     </div>
   );
 }
+
+

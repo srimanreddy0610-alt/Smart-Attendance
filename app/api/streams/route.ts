@@ -1,15 +1,15 @@
 import { NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
+import { getCurrentUser, getSessionUserId } from "@/lib/auth";
 import { getDb } from "@/lib/db";
 import { Stream, User } from "@/lib/db/schema";
 
 export async function POST(req: Request) {
   try {
-    const { userId } = await auth();
+    const userId = await getSessionUserId();
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     await getDb();
-    const user = await User.findOne({ clerkUserId: userId });
+    const user = await User.findById(userId);
     if (!user || user.role !== "admin") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
     const { name, description } = await req.json();
@@ -30,3 +30,5 @@ export async function GET() {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
+
+

@@ -35,12 +35,12 @@ export default async function ParentStudentViewPage({
 
   // 1. Verify link
   const parent = await Parent.findOne({ 
-    clerkUserId: user.clerkUserId,
+    user: user._id,
     linkedStudents: studentId
   });
 
   if (!parent) {
-    console.log(`[PARENT_VIEW] Parent ${user.clerkUserId} not linked to student ${studentId}`);
+    console.log(`[PARENT_VIEW] Parent ${user._id} not linked to student ${studentId}`);
     redirect("/parent/dashboard");
   }
 

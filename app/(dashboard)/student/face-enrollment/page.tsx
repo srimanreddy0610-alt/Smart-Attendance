@@ -1,16 +1,16 @@
 import { redirect } from "next/navigation";
-import { auth } from "@clerk/nextjs/server";
+import { getSessionUserId, getCurrentUser } from "@/lib/auth";
 import { getDb } from "@/lib/db";
 import { Student } from "@/lib/db/schema";
 import { FaceEnrollmentWizard } from "@/components/student/face-enrollment-wizard";
 
 export default async function FaceEnrollmentPage() {
-  const { userId } = await auth();
+  const userId = await getSessionUserId();
   if (!userId) redirect("/sign-in");
 
   await getDb();
 
-  const student = await Student.findOne({ clerkUserId: userId });
+  const student = await Student.findOne({ user: userId });
 
   if (!student) redirect("/onboarding");
 
@@ -29,3 +29,5 @@ export default async function FaceEnrollmentPage() {
     </div>
   );
 }
+
+

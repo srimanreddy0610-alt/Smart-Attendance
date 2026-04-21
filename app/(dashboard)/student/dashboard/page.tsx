@@ -1,34 +1,41 @@
+import { getCurrentUser } from "@/lib/auth";
 import { redirect } from "next/navigation";
-import { auth } from "@clerk/nextjs/server";
 import { getDb } from "@/lib/db";
-import { Student, User, Enrollment, AttendanceRecord, AttendanceSession, Timetable, Course } from "@/lib/db/schema";
+import { 
+  User, 
+  Course, 
+  Enrollment, 
+  AttendanceSession, 
+  Student, 
+  Timetable,
+  AttendanceRecord
+} from "@/lib/db/schema";
+import { StudentDashboardClient } from "@/components/student/student-dashboard-client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
-  BookOpen,
   Calendar,
   AlertCircle,
   Clock,
   MapPin,
   ArrowRight,
+  BookOpen,
+  Sparkles,
+  Plus,
 } from "lucide-react";
 import Link from "next/link";
 import { NotificationListener } from "@/components/student/notification-listener";
 import { RegisterCourseButton } from "@/components/student/register-course-button";
-import { StudentDashboardClient } from "@/components/student/student-dashboard-client";
-import { Sparkles, Plus } from "lucide-react";
 
 export default async function StudentDashboard() {
-  const { userId } = await auth();
-  if (!userId) redirect("/sign-in");
+  const user = await getCurrentUser();
+  if (!user || user.role !== "student") redirect("/sign-in");
 
   await getDb();
 
-  const student = await Student.findOne({ clerkUserId: userId });
+  const student = await Student.findOne({ user: user._id }).lean();
 
   if (!student) redirect("/onboarding");
-
-  const user = await User.findOne({ clerkUserId: userId });
 
   // Enrolled courses
   const enrollmentsList = await Enrollment.find({ studentId: student._id }).populate({
@@ -355,3 +362,4 @@ export default async function StudentDashboard() {
     </div>
   );
 }
+

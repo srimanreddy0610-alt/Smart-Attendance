@@ -22,7 +22,7 @@ export default async function DashboardRoot() {
   await getDb();
 
   // Check if student has completed onboarding
-  const student = await Student.findOne({ clerkUserId: user.clerkUserId }).select('_id');
+  const student = await Student.findOne({ user: user._id }).select('_id');
 
   if (!student) {
     redirect("/onboarding");
@@ -30,3 +30,4 @@ export default async function DashboardRoot() {
 
   redirect("/student/dashboard");
 }
+

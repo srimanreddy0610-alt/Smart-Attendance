@@ -1,56 +1,31 @@
-import { auth, clerkClient } from "@clerk/nextjs/server";
+import { cookies } from "next/headers";
 import { getDb } from "@/lib/db";
 import { User, Student } from "@/lib/db/schema";
+import { decrypt } from "./session";
 
 export async function getCurrentUser() {
-  const { userId } = await auth();
-  if (!userId) return null;
-
   await getDb();
+  
+  const cookieStore = await cookies();
+  const session = cookieStore.get("session")?.value;
+  const payload = await decrypt(session);
 
-  const user = await User.findOne({ clerkUserId: userId });
-
-  if (user) {
-    console.log(`[AUTH] User found in DB: ${user.email}, Role: ${user.role}`);
-    return user.toObject();
-  }
-
-  console.log(`[AUTH] User ${userId} not found in DB, syncing from Clerk...`);
-
-  // User is authenticated with Clerk but not yet in DB (webhook may be delayed).
-  // Auto-sync from Clerk to avoid requiring a manual page refresh.
-  try {
-    const client = await clerkClient();
-    const clerkUser = await client.users.getUser(userId);
-    const email = clerkUser.emailAddresses[0]?.emailAddress ?? "";
-    
-    console.log(`[AUTH] Clerk User full metadata - Public:`, JSON.stringify(clerkUser.publicMetadata), "Unsafe:", JSON.stringify(clerkUser.unsafeMetadata));
-    
-    // Trust Clerk public or unsafe metadata for the role if it's set during registration
-    let role: "admin" | "teacher" | "parent" | "student" = 
-      (clerkUser.publicMetadata?.role as any) || (clerkUser.unsafeMetadata?.role as any) || "student";
-
-    console.log(`[AUTH] Extracted Metadata Role: ${role}`);
-
-    try {
-      const newUser = await User.create({
-        clerkUserId: userId,
-        email,
-        firstName: clerkUser.firstName || undefined,
-        lastName: clerkUser.lastName || undefined,
-        role,
-      });
-      return newUser.toObject();
-    } catch (e: any) {
-      if (e?.code === 11000) {
-        const existing = await User.findOne({ clerkUserId: userId });
-        return existing?.toObject() ?? null;
-      }
-      throw e;
-    }
-  } catch {
+  if (!payload?.userId) {
+    // Check for development bypass if needed, but let's stick to session for "simple" auth
     return null;
   }
+
+  const user = await User.findById(payload.userId).select("-password");
+  if (!user) return null;
+
+  return JSON.parse(JSON.stringify(user.toObject()));
+}
+
+export async function getSessionUserId() {
+  const cookieStore = await cookies();
+  const session = cookieStore.get("session")?.value;
+  const payload = await decrypt(session);
+  return (payload?.userId as string) || null;
 }
 
 export async function requireUser() {
@@ -87,8 +62,8 @@ export async function requireParent() {
   return user;
 }
 
-export async function getStudentProfile(clerkUserId: string) {
+export async function getStudentProfile(userId: string) {
   await getDb();
-  const student = await Student.findOne({ clerkUserId });
+  const student = await Student.findOne({ user: userId });
   return student?.toObject() ?? null;
 }

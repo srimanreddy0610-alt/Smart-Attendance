@@ -35,10 +35,9 @@ export async function POST(req: Request) {
     }
 
     // 2. Ensure parent record exists
-    let parent = await Parent.findOne({ clerkUserId: parentUser.clerkUserId });
+    let parent = await Parent.findOne({ user: parentUser._id });
     if (!parent) {
       parent = await Parent.create({
-        clerkUserId: parentUser.clerkUserId,
         user: parentUser._id,
         linkedStudents: []
       });
@@ -55,7 +54,7 @@ export async function POST(req: Request) {
 
     // 5. Save OTP (overwrite existing for this relationship if exists)
     await ParentLinkOTP.findOneAndUpdate(
-      { parentId: parentUser.clerkUserId, studentId: student._id },
+      { parentId: parentUser._id, studentId: student._id },
       { otp, expiresAt },
       { upsert: true, new: true }
     );
@@ -79,3 +78,4 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: error.message || "Internal server error" }, { status: 500 });
   }
 }
+

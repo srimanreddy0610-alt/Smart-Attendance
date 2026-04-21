@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
-import { auth, clerkClient } from "@clerk/nextjs/server";
+import { getCurrentUser, getSessionUserId } from "@/lib/auth";
 import { getDb } from "@/lib/db";
 import { User } from "@/lib/db/schema";
 
 export async function POST(req: Request) {
   try {
-    const { userId } = await auth();
+    const userId = await getSessionUserId();
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -19,7 +19,7 @@ export async function POST(req: Request) {
 
     // Update DB
     await User.updateOne(
-      { clerkUserId: userId },
+      { _id: userId },
       { $set: { role } }
     );
 
@@ -42,3 +42,5 @@ export async function POST(req: Request) {
     );
   }
 }
+
+

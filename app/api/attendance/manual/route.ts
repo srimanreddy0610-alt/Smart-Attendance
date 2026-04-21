@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
+import { getCurrentUser, getSessionUserId } from "@/lib/auth";
 import { getDb } from "@/lib/db";
 import { AttendanceSession, AttendanceRecord, User } from "@/lib/db/schema";
 import { manualAttendanceSchema } from "@/lib/validations/attendance";
@@ -8,14 +8,14 @@ import { CHANNELS, EVENTS } from "@/lib/pusher/channels";
 
 export async function POST(req: Request) {
   try {
-    const { userId } = await auth();
+    const userId = await getSessionUserId();
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     await getDb();
 
-    const user = await User.findOne({ clerkUserId: userId });
+    const user = await User.findById(userId);
 
     if (!user || user.role !== "teacher") {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -54,15 +54,19 @@ export async function POST(req: Request) {
       { new: true, upsert: true }
     );
 
-    await pusherServer.trigger(
-      CHANNELS.session(sessionId.toString()),
-      EVENTS.ATTENDANCE_MARKED,
-      {
-        studentId: studentId.toString(),
-        status,
-        isManualEntry: true,
-      }
-    );
+    try {
+      await pusherServer.trigger(
+        CHANNELS.session(sessionId.toString()),
+        EVENTS.ATTENDANCE_MARKED,
+        {
+          studentId: studentId.toString(),
+          status,
+          isManualEntry: true,
+        }
+      );
+    } catch (pusherError) {
+      console.warn("[PUSHER_TRIGGER_ERROR] Skipping manual attendance notification:", pusherError);
+    }
 
     return NextResponse.json(record);
   } catch (error) {
@@ -73,3 +77,5 @@ export async function POST(req: Request) {
     );
   }
 }
+
+

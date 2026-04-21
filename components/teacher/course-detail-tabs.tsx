@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -121,13 +121,7 @@ export function CourseDetailTabs({
   useEffect(() => {
     fetch("/api/streams").then(res => res.json()).then(setStreams).catch(() => {});
   }, []);
-  const resetTimetableForm = () => {
-    setTtDay("1");
-    setTtStart("09:00");
-    setTtEnd("10:00");
-    setTtRoom("");
-    setEditingTimetable(null);
-  };
+
 
   // Timetable editing state
   const [editingTimetable, setEditingTimetable] = useState<any>(null);

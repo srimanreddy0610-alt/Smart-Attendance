@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { auth } from "@clerk/nextjs/server";
+import { getCurrentUser } from "@/lib/auth";
 import { getDb } from "@/lib/db";
 import { User, Course, AttendanceSession, Timetable, Enrollment, AttendanceRecord } from "@/lib/db/schema";
 import { Badge } from "@/components/ui/badge";
@@ -17,14 +17,10 @@ import { format } from "date-fns";
 import { TeacherDashboardClient } from "@/components/teacher/teacher-dashboard-client";
 
 export default async function TeacherDashboard() {
-  const { userId } = await auth();
-  if (!userId) redirect("/sign-in");
+  const user = await getCurrentUser();
+  if (!user || user.role !== "teacher") redirect("/sign-in");
 
   await getDb();
-
-  const user = await User.findOne({ clerkUserId: userId });
-
-  if (!user || user.role !== "teacher") redirect("/");
 
   const teacherCourses = await Course.find({ teacherId: user._id }).sort({ name: 1 }).lean();
   
@@ -88,7 +84,7 @@ export default async function TeacherDashboard() {
     ? await Timetable.find({
         courseId: { $in: courseIds },
         dayOfWeek
-      }).populate('courseId', 'name _id').sort({ startTime: 1 }).lean()
+      }).populate('courseId', 'name _id section').sort({ startTime: 1 }).lean()
     : [];
 
   const now = new Date();
@@ -104,6 +100,7 @@ export default async function TeacherDashboard() {
     return {
       courseName: t.courseId?.name,
       courseId: t.courseId?._id.toString(),
+      section: t.courseId?.section,
       startTime: t.startTime,
       endTime: t.endTime,
       roomNumber: t.roomNumber,
@@ -197,9 +194,12 @@ export default async function TeacherDashboard() {
                     <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ${cls.isOngoing ? 'bg-primary text-primary-foreground animate-pulse' : 'bg-primary/10 text-primary'}`}>
                       <Clock className="h-5 w-5" />
                     </div>
-                    <div className="flex-1 min-w-0">
+                      <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
                         <p className="font-bold text-sm truncate">{cls.courseName}</p>
+                        <Badge variant="outline" className="text-[10px] h-4 leading-none border-primary/30 text-primary/70">
+                          Sec {cls.section}
+                        </Badge>
                         {cls.isOngoing && (
                             <Badge variant="default" className="text-[8px] h-4 leading-none bg-primary animate-bounce">NOW</Badge>
                         )}
@@ -287,3 +287,4 @@ export default async function TeacherDashboard() {
     </div>
   );
 }
+

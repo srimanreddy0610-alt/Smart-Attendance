@@ -1,4 +1,4 @@
-import { auth } from "@clerk/nextjs/server";
+import { getSessionUserId, getCurrentUser } from "@/lib/auth";
 import { NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { getDb } from "@/lib/db";
@@ -13,7 +13,7 @@ import {
 } from "@/lib/db/schema";
 
 export async function POST(req: Request) {
-  const { userId } = await auth();
+  const userId = await getSessionUserId();
   if (!userId)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -25,13 +25,13 @@ export async function POST(req: Request) {
   await getDb();
 
   // Fetch student profile + user name
-  const student = await Student.findOne({ clerkUserId: userId });
+  const student = await Student.findOne({ user: userId });
 
   if (!student) {
     return NextResponse.json({ error: "Student not found" }, { status: 404 });
   }
 
-  const userRecord = await User.findOne({ clerkUserId: userId });
+  const userRecord = await User.findById(userId);
 
   // Fetch enrolled courses with attendance stats
   const enrollments = await Enrollment.find({ studentId: student._id }).populate({
@@ -187,3 +187,5 @@ Your role:
 
   return NextResponse.json({ response });
 }
+
+

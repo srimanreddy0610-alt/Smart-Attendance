@@ -32,7 +32,7 @@ export async function GET() {
   await getDb();
 
   // Check if student has completed onboarding
-  const student = await Student.findOne({ clerkUserId: user.clerkUserId }).select('_id');
+  const student = await Student.findOne({ user: user._id }).select('_id');
 
   if (!student) {
     console.log("[REDIRECT] Student onboarding incomplete, going to /onboarding");
@@ -43,3 +43,4 @@ export async function GET() {
 
   return NextResponse.json({ destination: "/student/dashboard" });
 }
+

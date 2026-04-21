@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { auth } from "@clerk/nextjs/server";
+import { getSessionUserId, getCurrentUser } from "@/lib/auth";
 import { getDb } from "@/lib/db";
 import { Student, User, Enrollment, Course, Stream } from "@/lib/db/schema";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -8,13 +8,13 @@ import { BookOpen, GraduationCap, Mail, User as UserIcon, Sparkles, Building2 } 
 import { RegisterCourseButton } from "@/components/student/register-course-button";
 
 export default async function StudentProfilePage() {
-  const { userId } = await auth();
+  const userId = await getSessionUserId();
   if (!userId) redirect("/sign-in");
 
   await getDb();
 
-  const user = await User.findOne({ clerkUserId: userId });
-  const student = await Student.findOne({ clerkUserId: userId }).populate('streamId');
+  const user = await User.findById(userId);
+  const student = await Student.findOne({ user: userId }).populate('streamId');
 
   if (!student || !user) redirect("/onboarding");
 
@@ -28,7 +28,7 @@ export default async function StudentProfilePage() {
 
   // Available courses for suggestion
   const suggestedCourses = await Course.find({
-    streamId: student.streamId._id,
+    streamId: (student.streamId as any)._id || student.streamId,
     section: student.section,
     _id: { $nin: enrolledCourseIds }
   }).populate('teacherId').limit(4).lean();
@@ -142,3 +142,5 @@ export default async function StudentProfilePage() {
     </div>
   );
 }
+
+

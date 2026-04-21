@@ -12,6 +12,7 @@ import {
   StopCircle,
   Loader2,
   UserCheck,
+  Activity,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -30,6 +31,7 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
+  DialogTrigger,
 } from "@/components/ui/dialog";
 import { useLiveSession } from "@/hooks/use-live-session";
 

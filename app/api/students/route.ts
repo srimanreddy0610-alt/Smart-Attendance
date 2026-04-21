@@ -1,4 +1,4 @@
-import { auth } from "@clerk/nextjs/server";
+import { getCurrentUser, getSessionUserId } from "@/lib/auth";
 import { getDb } from "@/lib/db";
 import { User, Student } from "@/lib/db/schema";
 import { studentOnboardingSchema } from "@/lib/validations/student";
@@ -6,20 +6,20 @@ import { NextResponse } from "next/server";
 
 export async function POST(req: Request) {
   try {
-    const { userId } = await auth();
+    const userId = await getSessionUserId();
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     await getDb();
 
-    const user = await User.findOne({ clerkUserId: userId });
+    const user = await User.findById(userId);
 
     if (!user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    const existing = await Student.findOne({ clerkUserId: userId });
+    const existing = await Student.findOne({ user: userId });
 
     if (existing) {
       return NextResponse.json(
@@ -39,7 +39,7 @@ export async function POST(req: Request) {
     }
 
     const student = await Student.create({
-      clerkUserId: userId,
+      user: userId,
       user: user._id,
       rollNumber: parsed.data.rollNumber,
       department: parsed.data.department,
@@ -71,14 +71,14 @@ export async function POST(req: Request) {
 
 export async function GET() {
   try {
-    const { userId } = await auth();
+    const userId = await getSessionUserId();
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     await getDb();
 
-    const student = await Student.findOne({ clerkUserId: userId });
+    const student = await Student.findOne({ user: userId });
 
     if (!student) {
       return NextResponse.json(
@@ -96,3 +96,5 @@ export async function GET() {
     );
   }
 }
+
+

@@ -1,4 +1,4 @@
-import { auth } from "@clerk/nextjs/server";
+import { getSessionUserId, getCurrentUser } from "@/lib/auth";
 import { getDb } from "@/lib/db";
 import { Student } from "@/lib/db/schema";
 import { NextResponse } from "next/server";
@@ -11,7 +11,7 @@ const faceUpdateSchema = z.object({
 
 export async function PUT(req: Request) {
   try {
-    const { userId } = await auth();
+    const userId = await getSessionUserId();
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -28,7 +28,7 @@ export async function PUT(req: Request) {
 
     await getDb();
 
-    const student = await Student.findOne({ clerkUserId: userId });
+    const student = await Student.findOne({ user: userId });
 
     if (!student) {
       return NextResponse.json(
@@ -55,3 +55,5 @@ export async function PUT(req: Request) {
     );
   }
 }
+
+

@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { auth } from "@clerk/nextjs/server";
+import { getCurrentUser } from "@/lib/auth";
 import { getDb } from "@/lib/db";
 import {
   Student,
@@ -19,13 +19,14 @@ export default async function MarkAttendancePage({
 }: {
   params: Promise<{ sessionId: string }>;
 }) {
-  const { userId } = await auth();
+  const user = await getCurrentUser();
+  const userId = user?._id?.toString();
   if (!userId) redirect("/sign-in");
 
   const { sessionId } = await params;
   await getDb();
 
-  const student = await Student.findOne({ clerkUserId: userId });
+  const student = await Student.findOne({ user: userId });
 
   if (!student) redirect("/onboarding");
 

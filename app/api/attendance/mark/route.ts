@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
+import { getCurrentUser, getSessionUserId } from "@/lib/auth";
 import { getDb } from "@/lib/db";
 import {
   AttendanceSession,
@@ -22,14 +22,14 @@ function euclideanDistance(a: number[], b: number[]): number {
 
 export async function POST(req: Request) {
   try {
-    const { userId } = await auth();
+    const userId = await getSessionUserId();
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     await getDb();
 
-    const user = await User.findOne({ clerkUserId: userId });
+    const user = await User.findById(userId);
 
     if (!user || user.role !== "student") {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -69,7 +69,7 @@ export async function POST(req: Request) {
     }
 
     // Get student
-    const student = await Student.findOne({ clerkUserId: userId });
+    const student = await Student.findOne({ user: userId });
 
     if (!student) {
       return NextResponse.json(
@@ -151,16 +151,20 @@ export async function POST(req: Request) {
       .filter(Boolean)
       .join(" ");
 
-    await pusherServer.trigger(
-      CHANNELS.session(sessionId.toString()),
-      EVENTS.ATTENDANCE_MARKED,
-      {
-        studentId: student._id.toString(),
-        studentName,
-        rollNumber: student.rollNumber,
-        confidenceScore: serverSimilarity,
-      }
-    );
+    try {
+      await pusherServer.trigger(
+        CHANNELS.session(sessionId.toString()),
+        EVENTS.ATTENDANCE_MARKED,
+        {
+          studentId: student._id.toString(),
+          studentName,
+          rollNumber: student.rollNumber,
+          confidenceScore: serverSimilarity,
+        }
+      );
+    } catch (pusherError) {
+      console.warn("[PUSHER_TRIGGER_ERROR] Skipping student attendance notification:", pusherError);
+    }
 
     return NextResponse.json({
       success: true,
@@ -175,3 +179,5 @@ export async function POST(req: Request) {
     );
   }
 }
+
+

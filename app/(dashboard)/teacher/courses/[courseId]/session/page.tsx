@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { auth } from "@clerk/nextjs/server";
+import { getCurrentUser } from "@/lib/auth";
 import { getDb } from "@/lib/db";
 import { User, Course, AttendanceSession } from "@/lib/db/schema";
 import { StartSessionForm } from "@/components/teacher/start-session-form";
@@ -9,12 +9,13 @@ export default async function SessionPage({
 }: {
   params: Promise<{ courseId: string }>;
 }) {
-  const { userId } = await auth();
+  const sessionUser = await getCurrentUser();
+  const userId = sessionUser?._id?.toString();
   if (!userId) redirect("/sign-in");
 
   await getDb();
 
-  const user = await User.findOne({ clerkUserId: userId });
+  const user = await User.findById(userId);
 
   if (!user || user.role !== "teacher") redirect("/");
 

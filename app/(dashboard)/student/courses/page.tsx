@@ -1,17 +1,17 @@
 import { redirect } from "next/navigation";
-import { auth } from "@clerk/nextjs/server";
+import { getSessionUserId, getCurrentUser } from "@/lib/auth";
 import { getDb } from "@/lib/db";
 import { Student, Enrollment, AttendanceRecord, AttendanceSession } from "@/lib/db/schema";
 import { Badge } from "@/components/ui/badge";
 import { BookOpen, User, GraduationCap } from "lucide-react";
 
 export default async function StudentCoursesPage() {
-  const { userId } = await auth();
+  const userId = await getSessionUserId();
   if (!userId) redirect("/sign-in");
 
   await getDb();
 
-  const student = await Student.findOne({ clerkUserId: userId });
+  const student = await Student.findOne({ user: userId });
 
   if (!student) redirect("/onboarding");
 
@@ -117,3 +117,5 @@ export default async function StudentCoursesPage() {
     </div>
   );
 }
+
+

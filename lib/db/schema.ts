@@ -5,20 +5,18 @@ export const USER_ROLES = ["teacher", "student", "admin", "parent"] as const;
 export const SESSION_STATUSES = ["active", "ended"] as const;
 export const ATTENDANCE_STATUSES = ["present", "absent"] as const;
 
-// Mongoose automatically uses `_id` as the primary key.
-
 // --- User Schema ---
 export interface IUser extends Document {
-  clerkUserId: string;
   email: string;
+  password?: string;
   firstName?: string;
   lastName?: string;
   role: typeof USER_ROLES[number];
   createdAt: Date;
 }
 const userSchema = new Schema<IUser>({
-  clerkUserId: { type: String, required: true, unique: true },
-  email: { type: String, required: true },
+  email: { type: String, required: true, unique: true },
+  password: { type: String },
   firstName: { type: String },
   lastName: { type: String },
   role: { type: String, enum: USER_ROLES, default: "student", required: true },
@@ -28,8 +26,7 @@ export const User: Model<IUser> = mongoose.models.User || mongoose.model<IUser>(
 
 // --- Student Schema ---
 export interface IStudent extends Document {
-  clerkUserId: string; // Used to reference `User.clerkUserId`
-  user: mongoose.Types.ObjectId | IUser | string; // Reference to the actual User document
+  user: mongoose.Types.ObjectId | IUser | string; 
   rollNumber: string;
   department: string;
   semester: number;
@@ -40,7 +37,6 @@ export interface IStudent extends Document {
   createdAt: Date;
 }
 const studentSchema = new Schema<IStudent>({
-  clerkUserId: { type: String, required: true },
   user: { type: Schema.Types.ObjectId, ref: "User", required: true },
   rollNumber: { type: String, required: true, unique: true },
   department: { type: String, required: true },
@@ -130,7 +126,7 @@ export interface IAttendanceSession extends Document {
   endTime?: Date;
   status: typeof SESSION_STATUSES[number];
   accessCode?: string;
-  qrUrl?: string; // Optional if we generate it on the fly
+  qrUrl?: string; 
   metadata?: any;
   createdAt: Date;
 }
@@ -175,14 +171,12 @@ export const AttendanceRecord: Model<IAttendanceRecord> = mongoose.models.Attend
 
 // --- Parent Schema ---
 export interface IParent extends Document {
-  clerkUserId: string;
   user: mongoose.Types.ObjectId | IUser | string;
   linkedStudents: (mongoose.Types.ObjectId | IStudent | string)[];
   createdAt: Date;
 }
 
 const parentSchema = new Schema<IParent>({
-  clerkUserId: { type: String, required: true, unique: true },
   user: { type: Schema.Types.ObjectId, ref: "User", required: true },
   linkedStudents: [{ type: Schema.Types.ObjectId, ref: "Student" }],
   createdAt: { type: Date, default: Date.now, required: true },
@@ -199,10 +193,10 @@ export interface IParentLinkOTP extends Document {
 }
 
 const parentLinkOTPSchema = new Schema<IParentLinkOTP>({
-  parentId: { type: String, required: true },
+  parentId: { type: Schema.Types.ObjectId, ref: "User", required: true },
   studentId: { type: Schema.Types.ObjectId, ref: "Student", required: true },
   otp: { type: String, required: true },
-  expiresAt: { type: Date, required: true, index: { expires: 0 } }, // Auto-delete after expiration
+  expiresAt: { type: Date, required: true, index: { expires: 0 } }, 
 });
 
 export const ParentLinkOTP: Model<IParentLinkOTP> = mongoose.models.ParentLinkOTP || mongoose.model<IParentLinkOTP>("ParentLinkOTP", parentLinkOTPSchema);

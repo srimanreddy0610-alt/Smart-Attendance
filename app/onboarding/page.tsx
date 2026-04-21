@@ -11,7 +11,7 @@ export default async function OnboardingPage() {
     redirect("/sign-in");
   }
 
-  console.log(`[ONBOARDING_PAGE] Rendering for user ${user.clerkUserId}, role: ${user.role}`);
+  console.log(`[ONBOARDING_PAGE] Rendering for user ${user._id}, role: ${user.role}`);
 
   // If role is already set to something other than student, redirect them to their dashboard
   // Unless they landed here specifically to change it (optional logic)
@@ -21,7 +21,7 @@ export default async function OnboardingPage() {
 
   await getDb();
 
-  const existingStudent = await Student.findOne({ clerkUserId: user.clerkUserId }).select('_id');
+  const existingStudent = await Student.findOne({ user: user._id }).select('_id');
 
   if (existingStudent) {
     console.log("[ONBOARDING_PAGE] Student profile already exists, redirecting to student dashboard");
@@ -30,3 +30,4 @@ export default async function OnboardingPage() {
 
   return <OnboardingView />;
 }
+

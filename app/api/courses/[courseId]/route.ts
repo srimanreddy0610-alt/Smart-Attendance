@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
+import { getCurrentUser } from "@/lib/auth";
 import { getDb } from "@/lib/db";
 import { Course, User, Enrollment, Timetable } from "@/lib/db/schema";
 import { courseSchema } from "@/lib/validations/course";
@@ -9,7 +9,8 @@ export async function GET(
   { params }: { params: Promise<{ courseId: string }> }
 ) {
   try {
-    const { userId } = await auth();
+    const user = await getCurrentUser();
+  const userId = user?._id?.toString();
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -67,14 +68,15 @@ export async function PUT(
   { params }: { params: Promise<{ courseId: string }> }
 ) {
   try {
-    const { userId } = await auth();
+    const user = await getCurrentUser();
+  const userId = user?._id?.toString();
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     await getDb();
     
-    const user = await User.findOne({ clerkUserId: userId });
+    const user = await User.findById(userId);
 
     if (!user || user.role !== "teacher") {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -117,14 +119,15 @@ export async function DELETE(
   { params }: { params: Promise<{ courseId: string }> }
 ) {
   try {
-    const { userId } = await auth();
+    const user = await getCurrentUser();
+  const userId = user?._id?.toString();
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     await getDb();
 
-    const user = await User.findOne({ clerkUserId: userId });
+    const user = await User.findById(userId);
 
     if (!user || user.role !== "teacher") {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });

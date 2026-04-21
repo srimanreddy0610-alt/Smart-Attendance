@@ -1,8 +1,8 @@
-import { auth } from "@clerk/nextjs/server";
+import { getSessionUserId, getCurrentUser } from "@/lib/auth";
 import { pusherServer } from "@/lib/pusher/server";
 
 export async function POST(req: Request) {
-  const { userId } = await auth();
+  const userId = await getSessionUserId();
   if (!userId) {
     return new Response("Unauthorized", { status: 401 });
   }
@@ -18,3 +18,5 @@ export async function POST(req: Request) {
 
   return Response.json(authResponse);
 }
+
+

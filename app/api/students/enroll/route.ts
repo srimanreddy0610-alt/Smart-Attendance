@@ -1,15 +1,15 @@
 import { NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
+import { getCurrentUser, getSessionUserId } from "@/lib/auth";
 import { getDb } from "@/lib/db";
 import { Student, Enrollment, Course } from "@/lib/db/schema";
 
 export async function POST(req: Request) {
   try {
-    const { userId } = await auth();
+    const userId = await getSessionUserId();
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     await getDb();
-    const student = await Student.findOne({ clerkUserId: userId });
+    const student = await Student.findOne({ user: userId });
     if (!student) return NextResponse.json({ error: "Student not found" }, { status: 404 });
 
     const { courseId } = await req.json();
@@ -50,3 +50,5 @@ export async function POST(req: Request) {
     }, { status: 500 });
   }
 }
+
+

@@ -16,7 +16,7 @@ export async function POST(req: Request) {
 
     // 1. Verify OTP
     const validOtp = await ParentLinkOTP.findOne({
-      parentId: parentUser.clerkUserId,
+      parentId: parentUser._id,
       studentId,
       otp,
       expiresAt: { $gt: new Date() }
@@ -27,7 +27,7 @@ export async function POST(req: Request) {
     }
 
     // 2. Link student to parent
-    const parent = await Parent.findOne({ clerkUserId: parentUser.clerkUserId });
+    const parent = await Parent.findOne({ user: parentUser._id });
     
     if (!parent) {
       return NextResponse.json({ error: "Parent record not found" }, { status: 404 });
@@ -48,3 +48,4 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: error.message || "Internal server error" }, { status: 500 });
   }
 }
+

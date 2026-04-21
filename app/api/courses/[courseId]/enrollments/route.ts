@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
+import { getCurrentUser } from "@/lib/auth";
 import { getDb } from "@/lib/db";
 import { Course, Enrollment, Student, User } from "@/lib/db/schema";
 
@@ -8,7 +8,8 @@ export async function GET(
   { params }: { params: Promise<{ courseId: string }> }
 ) {
   try {
-    const { userId } = await auth();
+    const user = await getCurrentUser();
+  const userId = user?._id?.toString();
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -21,7 +22,7 @@ export async function GET(
         path: 'studentId',
         populate: {
           path: 'user',
-          select: 'firstName lastName email clerkUserId'
+          select: 'firstName lastName email'
         }
       }).lean();
 
@@ -58,16 +59,17 @@ export async function POST(
   { params }: { params: Promise<{ courseId: string }> }
 ) {
   try {
-    const { userId } = await auth();
+    const user = await getCurrentUser();
+  const userId = user?._id?.toString();
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     await getDb();
 
-    const user = await User.findOne({ clerkUserId: userId });
+    const userRecord = await User.findById(userId);
 
-    if (!user || user.role !== "teacher") {
+    if (!userRecord || userRecord.role !== "teacher") {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
@@ -123,16 +125,17 @@ export async function DELETE(
   { params }: { params: Promise<{ courseId: string }> }
 ) {
   try {
-    const { userId } = await auth();
+    const user = await getCurrentUser();
+  const userId = user?._id?.toString();
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     await getDb();
 
-    const user = await User.findOne({ clerkUserId: userId });
+    const userRecord = await User.findById(userId);
 
-    if (!user || user.role !== "teacher") {
+    if (!userRecord || userRecord.role !== "teacher") {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 

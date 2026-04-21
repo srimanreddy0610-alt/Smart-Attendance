@@ -18,7 +18,7 @@ export default async function ParentDashboardPage() {
   const user = await requireParent();
   await getDb();
 
-  const parentData = await Parent.findOne({ clerkUserId: user.clerkUserId })
+  const parentData = await Parent.findOne({ user: user._id })
     .populate({
       path: "linkedStudents",
       populate: { path: "user", select: "firstName lastName email" }
@@ -125,3 +125,4 @@ export default async function ParentDashboardPage() {
     </div>
   );
 }
+

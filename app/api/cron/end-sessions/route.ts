@@ -51,11 +51,15 @@ export async function POST(req: Request) {
       await AttendanceRecord.insertMany(absentRecords);
     }
 
-    await pusherServer.trigger(
-      CHANNELS.session(session._id.toString()),
-      EVENTS.SESSION_ENDED,
-      { sessionId: session._id.toString() }
-    );
+    try {
+      await pusherServer.trigger(
+        CHANNELS.session(session._id.toString()),
+        EVENTS.SESSION_ENDED,
+        { sessionId: session._id.toString() }
+      );
+    } catch (pusherError) {
+      console.warn("[PUSHER_TRIGGER_ERROR] Skipping automated session end notification:", pusherError);
+    }
   }
 
   return Response.json({
@@ -63,3 +67,4 @@ export async function POST(req: Request) {
     timestamp: now.toISOString(),
   });
 }
+
