@@ -33,7 +33,7 @@ const MATCH_THRESHOLD = Number(
 );
 
 interface MarkAttendanceFlowProps {
-  sessionId: number;
+  sessionId: string;
   courseName: string;
   storedDescriptor: number[];
 }

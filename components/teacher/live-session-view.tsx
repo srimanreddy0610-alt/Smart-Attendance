@@ -34,8 +34,8 @@ import {
 import { useLiveSession } from "@/hooks/use-live-session";
 
 interface LiveSessionViewProps {
-  sessionId: number;
-  courseId: number;
+  sessionId: string;
+  courseId: string;
   courseName: string;
   startTime: string;
   endTime: string | null;
@@ -55,7 +55,7 @@ export function LiveSessionView({
     useLiveSession(sessionId);
   const [isEndingSession, setIsEndingSession] = useState(false);
   const [manualOverrideStudent, setManualOverrideStudent] = useState<{
-    studentId: number;
+    studentId: string;
     studentName: string;
   } | null>(null);
   const [timeRemaining, setTimeRemaining] = useState("");

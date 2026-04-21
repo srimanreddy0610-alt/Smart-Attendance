@@ -115,7 +115,7 @@ export default async function LandingPage() {
           </Link>
           <div className="flex items-center gap-3">
             <Button variant="ghost" size="sm" asChild>
-              <Link href="/sign-in">Sign In</Link>
+              <Link href="/login">Sign In</Link>
             </Button>
             <Button size="sm" asChild>
               <Link href="/sign-up">
@@ -163,7 +163,7 @@ export default async function LandingPage() {
                 className="h-12 px-8 text-base"
                 asChild
               >
-                <Link href="/sign-in">Sign In to Dashboard</Link>
+                <Link href="/login">Sign In to Dashboard</Link>
               </Button>
             </div>
 

@@ -1,7 +1,6 @@
 import { auth } from "@clerk/nextjs/server";
-import { db } from "@/lib/db";
-import { users, students } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { getDb } from "@/lib/db";
+import { User, Student } from "@/lib/db/schema";
 import { studentOnboardingSchema } from "@/lib/validations/student";
 import { NextResponse } from "next/server";
 
@@ -12,21 +11,15 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const [user] = await db
-      .select()
-      .from(users)
-      .where(eq(users.clerkUserId, userId))
-      .limit(1);
+    await getDb();
+
+    const user = await User.findOne({ clerkUserId: userId });
 
     if (!user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    const [existing] = await db
-      .select()
-      .from(students)
-      .where(eq(students.clerkUserId, userId))
-      .limit(1);
+    const existing = await Student.findOne({ clerkUserId: userId });
 
     if (existing) {
       return NextResponse.json(
@@ -45,16 +38,14 @@ export async function POST(req: Request) {
       );
     }
 
-    const [student] = await db
-      .insert(students)
-      .values({
-        clerkUserId: userId,
-        rollNumber: parsed.data.rollNumber,
-        department: parsed.data.department,
-        semester: parsed.data.semester,
-        section: parsed.data.section,
-      })
-      .returning();
+    const student = await Student.create({
+      clerkUserId: userId,
+      user: user._id,
+      rollNumber: parsed.data.rollNumber,
+      department: parsed.data.department,
+      semester: parsed.data.semester,
+      section: parsed.data.section,
+    });
 
     return NextResponse.json(student, { status: 201 });
   } catch (error) {
@@ -73,11 +64,9 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const [student] = await db
-      .select()
-      .from(students)
-      .where(eq(students.clerkUserId, userId))
-      .limit(1);
+    await getDb();
+
+    const student = await Student.findOne({ clerkUserId: userId });
 
     if (!student) {
       return NextResponse.json(

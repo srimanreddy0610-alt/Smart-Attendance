@@ -1,113 +1,153 @@
-import { createId } from "@paralleldrive/cuid2";
-import {
-  boolean,
-  integer,
-  jsonb,
-  pgEnum,
-  pgTable,
-  serial,
-  text,
-  timestamp,
-  uniqueIndex,
-  varchar,
-} from "drizzle-orm/pg-core";
+import mongoose, { Document, Model, Schema } from 'mongoose';
 
-export const userRoleEnum = pgEnum("user_role", ["teacher", "student"]);
-export const sessionStatusEnum = pgEnum("session_status", ["active", "ended"]);
-export const attendanceStatusEnum = pgEnum("attendance_status", [
-  "present",
-  "absent",
-]);
+// Enums
+export const USER_ROLES = ["teacher", "student", "admin", "parent"] as const;
+export const SESSION_STATUSES = ["active", "ended"] as const;
+export const ATTENDANCE_STATUSES = ["present", "absent"] as const;
 
-export const users = pgTable("users", {
-  id: serial("id").primaryKey(),
-  clerkUserId: varchar("clerk_user_id", { length: 255 }).notNull().unique(),
-  email: varchar("email", { length: 255 }).notNull(),
-  firstName: varchar("first_name", { length: 100 }),
-  lastName: varchar("last_name", { length: 100 }),
-  role: userRoleEnum("role").notNull().default("student"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
+// Mongoose automatically uses `_id` as the primary key.
+
+// --- User Schema ---
+export interface IUser extends Document {
+  clerkUserId: string;
+  email: string;
+  firstName?: string;
+  lastName?: string;
+  role: typeof USER_ROLES[number];
+  createdAt: Date;
+}
+const userSchema = new Schema<IUser>({
+  clerkUserId: { type: String, required: true, unique: true },
+  email: { type: String, required: true },
+  firstName: { type: String },
+  lastName: { type: String },
+  role: { type: String, enum: USER_ROLES, default: "student", required: true },
+  createdAt: { type: Date, default: Date.now, required: true },
 });
+export const User: Model<IUser> = mongoose.models.User || mongoose.model<IUser>("User", userSchema);
 
-export const students = pgTable("students", {
-  id: serial("id").primaryKey(),
-  clerkUserId: varchar("clerk_user_id", { length: 255 })
-    .notNull()
-    .references(() => users.clerkUserId, { onDelete: "cascade" }),
-  rollNumber: varchar("roll_number", { length: 50 }).notNull().unique(),
-  department: varchar("department", { length: 100 }).notNull(),
-  semester: integer("semester").notNull(),
-  section: varchar("section", { length: 10 }).notNull(),
-  photoUrl: text("photo_url"),
-  faceDescriptor: text("face_descriptor"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
+// --- Student Schema ---
+export interface IStudent extends Document {
+  clerkUserId: string; // Used to reference `User.clerkUserId`
+  user: mongoose.Types.ObjectId | IUser | string; // Reference to the actual User document
+  rollNumber: string;
+  department: string;
+  semester: number;
+  section: string;
+  photoUrl?: string;
+  faceDescriptor?: string;
+  createdAt: Date;
+}
+const studentSchema = new Schema<IStudent>({
+  clerkUserId: { type: String, required: true },
+  user: { type: Schema.Types.ObjectId, ref: "User", required: true },
+  rollNumber: { type: String, required: true, unique: true },
+  department: { type: String, required: true },
+  semester: { type: Number, required: true },
+  section: { type: String, required: true },
+  photoUrl: { type: String },
+  faceDescriptor: { type: String },
+  createdAt: { type: Date, default: Date.now, required: true },
 });
+export const Student: Model<IStudent> = mongoose.models.Student || mongoose.model<IStudent>("Student", studentSchema);
 
-export const courses = pgTable("courses", {
-  id: serial("id").primaryKey(),
-  name: varchar("name", { length: 200 }).notNull(),
-  code: varchar("code", { length: 20 }).notNull(),
-  teacherId: integer("teacher_id")
-    .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
-  department: varchar("department", { length: 100 }).notNull(),
-  semester: integer("semester").notNull(),
-  section: varchar("section", { length: 10 }).notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
+// --- Course Schema ---
+export interface ICourse extends Document {
+  name: string;
+  code: string;
+  teacherId: mongoose.Types.ObjectId | IUser | string;
+  department: string;
+  semester: number;
+  section: string;
+  createdAt: Date;
+}
+const courseSchema = new Schema<ICourse>({
+  name: { type: String, required: true },
+  code: { type: String, required: true },
+  teacherId: { type: Schema.Types.ObjectId, ref: "User", required: true },
+  department: { type: String, required: true },
+  semester: { type: Number, required: true },
+  section: { type: String, required: true },
+  createdAt: { type: Date, default: Date.now, required: true },
 });
+export const Course: Model<ICourse> = mongoose.models.Course || mongoose.model<ICourse>("Course", courseSchema);
 
-export const enrollments = pgTable("enrollments", {
-  id: serial("id").primaryKey(),
-  courseId: integer("course_id")
-    .notNull()
-    .references(() => courses.id, { onDelete: "cascade" }),
-  studentId: integer("student_id")
-    .notNull()
-    .references(() => students.id, { onDelete: "cascade" }),
-  enrolledAt: timestamp("enrolled_at").defaultNow().notNull(),
+// --- Enrollment Schema ---
+export interface IEnrollment extends Document {
+  courseId: mongoose.Types.ObjectId | ICourse | string;
+  studentId: mongoose.Types.ObjectId | IStudent | string;
+  enrolledAt: Date;
+}
+const enrollmentSchema = new Schema<IEnrollment>({
+  courseId: { type: Schema.Types.ObjectId, ref: "Course", required: true },
+  studentId: { type: Schema.Types.ObjectId, ref: "Student", required: true },
+  enrolledAt: { type: Date, default: Date.now, required: true },
 });
+export const Enrollment: Model<IEnrollment> = mongoose.models.Enrollment || mongoose.model<IEnrollment>("Enrollment", enrollmentSchema);
 
-export const timetable = pgTable("timetable", {
-  id: serial("id").primaryKey(),
-  courseId: integer("course_id")
-    .notNull()
-    .references(() => courses.id, { onDelete: "cascade" }),
-  dayOfWeek: integer("day_of_week").notNull(),
-  startTime: varchar("start_time", { length: 5 }).notNull(),
-  endTime: varchar("end_time", { length: 5 }).notNull(),
-  roomNumber: varchar("room_number", { length: 20 }),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
+// --- Timetable Schema ---
+export interface ITimetable extends Document {
+  courseId: mongoose.Types.ObjectId | ICourse | string;
+  dayOfWeek: number;
+  startTime: string;
+  endTime: string;
+  roomNumber?: string;
+  createdAt: Date;
+}
+const timetableSchema = new Schema<ITimetable>({
+  courseId: { type: Schema.Types.ObjectId, ref: "Course", required: true },
+  dayOfWeek: { type: Number, required: true },
+  startTime: { type: String, required: true },
+  endTime: { type: String, required: true },
+  roomNumber: { type: String },
+  createdAt: { type: Date, default: Date.now, required: true },
 });
+export const Timetable: Model<ITimetable> = mongoose.models.Timetable || mongoose.model<ITimetable>("Timetable", timetableSchema);
 
-export const attendanceSessions = pgTable("attendance_sessions", {
-  id: serial("id").primaryKey(),
-  courseId: integer("course_id")
-    .notNull()
-    .references(() => courses.id, { onDelete: "cascade" }),
-  teacherId: integer("teacher_id")
-    .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
-  sessionDate: timestamp("session_date").notNull(),
-  startTime: timestamp("start_time").notNull(),
-  endTime: timestamp("end_time"),
-  status: sessionStatusEnum("status").notNull().default("active"),
-  metadata: jsonb("metadata"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
+// --- AttendanceSession Schema ---
+export interface IAttendanceSession extends Document {
+  courseId: mongoose.Types.ObjectId | ICourse | string;
+  teacherId: mongoose.Types.ObjectId | IUser | string;
+  sessionDate: Date;
+  startTime: Date;
+  endTime?: Date;
+  status: typeof SESSION_STATUSES[number];
+  metadata?: any;
+  createdAt: Date;
+}
+const attendanceSessionSchema = new Schema<IAttendanceSession>({
+  courseId: { type: Schema.Types.ObjectId, ref: "Course", required: true },
+  teacherId: { type: Schema.Types.ObjectId, ref: "User", required: true },
+  sessionDate: { type: Date, required: true },
+  startTime: { type: Date, required: true },
+  endTime: { type: Date },
+  status: { type: String, enum: SESSION_STATUSES, default: "active", required: true },
+  metadata: { type: Schema.Types.Mixed },
+  createdAt: { type: Date, default: Date.now, required: true },
 });
+export const AttendanceSession: Model<IAttendanceSession> = mongoose.models.AttendanceSession || mongoose.model<IAttendanceSession>("AttendanceSession", attendanceSessionSchema);
 
-export const attendanceRecords = pgTable("attendance_records", {
-  id: serial("id").primaryKey(),
-  sessionId: integer("session_id")
-    .notNull()
-    .references(() => attendanceSessions.id, { onDelete: "cascade" }),
-  studentId: integer("student_id")
-    .notNull()
-    .references(() => students.id, { onDelete: "cascade" }),
-  status: attendanceStatusEnum("status").notNull().default("absent"),
-  markedAt: timestamp("marked_at"),
-  confidenceScore: integer("confidence_score"),
-  verificationFrames: integer("verification_frames"),
-  isManualEntry: boolean("is_manual_entry").notNull().default(false),
-  markedBy: integer("marked_by").references(() => users.id),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
+// --- AttendanceRecord Schema ---
+export interface IAttendanceRecord extends Document {
+  sessionId: mongoose.Types.ObjectId | IAttendanceSession | string;
+  studentId: mongoose.Types.ObjectId | IStudent | string;
+  status: typeof ATTENDANCE_STATUSES[number];
+  markedAt?: Date;
+  confidenceScore?: number;
+  verificationFrames?: number;
+  isManualEntry: boolean;
+  markedBy?: mongoose.Types.ObjectId | IUser | string;
+  createdAt: Date;
+}
+const attendanceRecordSchema = new Schema<IAttendanceRecord>({
+  sessionId: { type: Schema.Types.ObjectId, ref: "AttendanceSession", required: true },
+  studentId: { type: Schema.Types.ObjectId, ref: "Student", required: true },
+  status: { type: String, enum: ATTENDANCE_STATUSES, default: "absent", required: true },
+  markedAt: { type: Date },
+  confidenceScore: { type: Number },
+  verificationFrames: { type: Number },
+  isManualEntry: { type: Boolean, default: false, required: true },
+  markedBy: { type: Schema.Types.ObjectId, ref: "User" },
+  createdAt: { type: Date, default: Date.now, required: true },
 });
+export const AttendanceRecord: Model<IAttendanceRecord> = mongoose.models.AttendanceRecord || mongoose.model<IAttendanceRecord>("AttendanceRecord", attendanceRecordSchema);

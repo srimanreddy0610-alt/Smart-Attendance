@@ -1,19 +1,16 @@
 import { redirect } from "next/navigation";
 import { auth } from "@clerk/nextjs/server";
-import { db } from "@/lib/db";
-import { students } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { getDb } from "@/lib/db";
+import { Student } from "@/lib/db/schema";
 import { FaceEnrollmentWizard } from "@/components/student/face-enrollment-wizard";
 
 export default async function FaceEnrollmentPage() {
   const { userId } = await auth();
   if (!userId) redirect("/sign-in");
 
-  const [student] = await db
-    .select()
-    .from(students)
-    .where(eq(students.clerkUserId, userId))
-    .limit(1);
+  await getDb();
+
+  const student = await Student.findOne({ clerkUserId: userId });
 
   if (!student) redirect("/onboarding");
 
@@ -27,7 +24,7 @@ export default async function FaceEnrollmentPage() {
       </div>
       <FaceEnrollmentWizard
         hasExistingFace={!!student.faceDescriptor}
-        existingPhotoUrl={student.photoUrl}
+        existingPhotoUrl={student.photoUrl ?? null}
       />
     </div>
   );

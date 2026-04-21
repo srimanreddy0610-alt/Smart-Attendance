@@ -1,14 +1,13 @@
 import { redirect } from "next/navigation";
 import { auth } from "@clerk/nextjs/server";
-import { db } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import {
-  students,
-  attendanceSessions,
-  courses,
-  enrollments,
-  attendanceRecords,
+  Student,
+  AttendanceSession,
+  Course,
+  Enrollment,
+  AttendanceRecord,
 } from "@/lib/db/schema";
-import { eq, and } from "drizzle-orm";
 import { MarkAttendanceFlow } from "@/components/student/mark-attendance-flow";
 import { Card, CardContent } from "@/components/ui/card";
 import { AlertCircle, CheckCircle } from "lucide-react";
@@ -24,12 +23,9 @@ export default async function MarkAttendancePage({
   if (!userId) redirect("/sign-in");
 
   const { sessionId } = await params;
+  await getDb();
 
-  const [student] = await db
-    .select()
-    .from(students)
-    .where(eq(students.clerkUserId, userId))
-    .limit(1);
+  const student = await Student.findOne({ clerkUserId: userId });
 
   if (!student) redirect("/onboarding");
 
@@ -56,20 +52,7 @@ export default async function MarkAttendancePage({
     );
   }
 
-  const [session] = await db
-    .select({
-      id: attendanceSessions.id,
-      courseId: attendanceSessions.courseId,
-      courseName: courses.name,
-      courseCode: courses.code,
-      status: attendanceSessions.status,
-      startTime: attendanceSessions.startTime,
-      endTime: attendanceSessions.endTime,
-    })
-    .from(attendanceSessions)
-    .innerJoin(courses, eq(attendanceSessions.courseId, courses.id))
-    .where(eq(attendanceSessions.id, parseInt(sessionId)))
-    .limit(1);
+  const session = await AttendanceSession.findById(sessionId).populate('courseId').lean();
 
   if (!session) {
     return (
@@ -81,6 +64,8 @@ export default async function MarkAttendancePage({
       </Card>
     );
   }
+
+  const course = session.courseId as any;
 
   if (session.status !== "active") {
     return (
@@ -100,16 +85,10 @@ export default async function MarkAttendancePage({
   }
 
   // Check enrollment
-  const [enrollment] = await db
-    .select()
-    .from(enrollments)
-    .where(
-      and(
-        eq(enrollments.courseId, session.courseId),
-        eq(enrollments.studentId, student.id)
-      )
-    )
-    .limit(1);
+  const enrollment = await Enrollment.findOne({
+    courseId: course._id,
+    studentId: student._id
+  });
 
   if (!enrollment) {
     return (
@@ -126,17 +105,11 @@ export default async function MarkAttendancePage({
   }
 
   // Check if already marked
-  const [existingRecord] = await db
-    .select()
-    .from(attendanceRecords)
-    .where(
-      and(
-        eq(attendanceRecords.sessionId, parseInt(sessionId)),
-        eq(attendanceRecords.studentId, student.id),
-        eq(attendanceRecords.status, "present")
-      )
-    )
-    .limit(1);
+  const existingRecord = await AttendanceRecord.findOne({
+    sessionId: session._id,
+    studentId: student._id,
+    status: "present"
+  });
 
   if (existingRecord) {
     return (
@@ -165,12 +138,12 @@ export default async function MarkAttendancePage({
       <div>
         <h1 className="text-2xl font-bold">Mark Attendance</h1>
         <p className="text-muted-foreground">
-          {session.courseName} ({session.courseCode})
+          {course.name} ({course.code})
         </p>
       </div>
       <MarkAttendanceFlow
-        sessionId={session.id}
-        courseName={session.courseName}
+        sessionId={session._id.toString()}
+        courseName={course.name}
         storedDescriptor={JSON.parse(student.faceDescriptor)}
       />
     </div>

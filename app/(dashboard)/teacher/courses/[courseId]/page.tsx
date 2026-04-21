@@ -1,15 +1,7 @@
 import { redirect } from "next/navigation";
 import { auth } from "@clerk/nextjs/server";
-import { db } from "@/lib/db";
-import {
-  users,
-  courses,
-  enrollments,
-  students,
-  attendanceSessions,
-  timetable,
-} from "@/lib/db/schema";
-import { eq, and, sql, desc } from "drizzle-orm";
+import { getDb } from "@/lib/db";
+import { User, Course, Enrollment, AttendanceSession, AttendanceRecord, Timetable } from "@/lib/db/schema";
 import { CourseDetailTabs } from "@/components/teacher/course-detail-tabs";
 
 export default async function CourseDetailPage({
@@ -20,68 +12,69 @@ export default async function CourseDetailPage({
   const { userId } = await auth();
   if (!userId) redirect("/sign-in");
 
-  const [user] = await db
-    .select()
-    .from(users)
-    .where(eq(users.clerkUserId, userId))
-    .limit(1);
+  await getDb();
+
+  const user = await User.findOne({ clerkUserId: userId });
 
   if (!user || user.role !== "teacher") redirect("/");
 
   const { courseId } = await params;
 
-  const [course] = await db
-    .select()
-    .from(courses)
-    .where(and(eq(courses.id, parseInt(courseId)), eq(courses.teacherId, user.id)))
-    .limit(1);
+  const course = await Course.findOne({
+    _id: courseId,
+    teacherId: user._id
+  }).lean();
 
   if (!course) redirect("/teacher/courses");
 
   // Get enrolled students
-  const enrolledStudents = await db
-    .select({
-      enrollmentId: enrollments.id,
-      studentId: students.id,
-      rollNumber: students.rollNumber,
-      department: students.department,
-      firstName: users.firstName,
-      lastName: users.lastName,
-      email: users.email,
-      photoUrl: students.photoUrl,
-      enrolledAt: enrollments.enrolledAt,
-    })
-    .from(enrollments)
-    .innerJoin(students, eq(enrollments.studentId, students.id))
-    .innerJoin(users, eq(students.clerkUserId, users.clerkUserId))
-    .where(eq(enrollments.courseId, parseInt(courseId)))
-    .orderBy(students.rollNumber);
+  const enrollmentsList = await Enrollment.find({ courseId }).populate({
+    path: 'studentId',
+    populate: { path: 'user' }
+  }).lean();
+
+  const enrolledStudents = enrollmentsList.map((e: any) => {
+    const student = e.studentId as any;
+    const studentUser = student?.user as any;
+    return {
+      enrollmentId: e._id.toString(),
+      studentId: student?._id.toString(),
+      rollNumber: student?.rollNumber,
+      department: student?.department,
+      firstName: studentUser?.firstName,
+      lastName: studentUser?.lastName,
+      email: studentUser?.email,
+      photoUrl: student?.photoUrl,
+      enrolledAt: e.enrolledAt,
+    };
+  }).sort((a, b) => (a.rollNumber || "").localeCompare(b.rollNumber || ""));
 
   // Get recent sessions
-  const recentSessions = await db
-    .select({
-      id: attendanceSessions.id,
-      sessionDate: attendanceSessions.sessionDate,
-      startTime: attendanceSessions.startTime,
-      endTime: attendanceSessions.endTime,
-      status: attendanceSessions.status,
-      presentCount: sql<number>`(
-        SELECT COUNT(*) FROM attendance_records
-        WHERE attendance_records.session_id = ${attendanceSessions.id}
-        AND attendance_records.status = 'present'
-      )`.as("present_count"),
-    })
-    .from(attendanceSessions)
-    .where(eq(attendanceSessions.courseId, parseInt(courseId)))
-    .orderBy(desc(attendanceSessions.startTime))
-    .limit(20);
+  const sessionsList = await AttendanceSession.find({ courseId }).sort({ startTime: -1 }).limit(20).lean();
+
+  const recentSessions = await Promise.all(sessionsList.map(async (s: any) => {
+    const presentCount = await AttendanceRecord.countDocuments({
+      sessionId: s._id,
+      status: 'present'
+    });
+    return {
+      id: s._id.toString(),
+      sessionDate: s.sessionDate,
+      startTime: s.startTime,
+      endTime: s.endTime,
+      status: s.status,
+      presentCount
+    };
+  }));
 
   // Get timetable
-  const timetableEntries = await db
-    .select()
-    .from(timetable)
-    .where(eq(timetable.courseId, parseInt(courseId)))
-    .orderBy(timetable.dayOfWeek, timetable.startTime);
+  const timetableDocs = await Timetable.find({ courseId }).sort({ dayOfWeek: 1, startTime: 1 }).lean();
+  const timetableEntries = timetableDocs.map((t: any) => ({ ...t, id: t._id.toString() }));
+
+  const formattedCourse = {
+    ...course,
+    id: course._id.toString()
+  } as any;
 
   return (
     <div className="space-y-6">
@@ -93,7 +86,7 @@ export default async function CourseDetailPage({
         </p>
       </div>
       <CourseDetailTabs
-        course={course}
+        course={formattedCourse}
         enrolledStudents={enrolledStudents}
         recentSessions={recentSessions}
         timetableEntries={timetableEntries}

@@ -1,15 +1,14 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { db } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import {
-  attendanceSessions,
-  attendanceRecords,
-  students,
-  users,
-  courses,
-  enrollments,
+  AttendanceSession,
+  AttendanceRecord,
+  Student,
+  User,
+  Course,
+  Enrollment,
 } from "@/lib/db/schema";
-import { eq, and, sql } from "drizzle-orm";
 import { pusherServer } from "@/lib/pusher/server";
 import { CHANNELS, EVENTS } from "@/lib/pusher/channels";
 
@@ -24,22 +23,9 @@ export async function GET(
     }
 
     const { sessionId } = await params;
+    await getDb();
 
-    const [session] = await db
-      .select({
-        id: attendanceSessions.id,
-        courseId: attendanceSessions.courseId,
-        courseName: courses.name,
-        courseCode: courses.code,
-        startTime: attendanceSessions.startTime,
-        endTime: attendanceSessions.endTime,
-        status: attendanceSessions.status,
-        sessionDate: attendanceSessions.sessionDate,
-      })
-      .from(attendanceSessions)
-      .innerJoin(courses, eq(attendanceSessions.courseId, courses.id))
-      .where(eq(attendanceSessions.id, parseInt(sessionId)))
-      .limit(1);
+    const session = await AttendanceSession.findById(sessionId).populate('courseId').lean();
 
     if (!session) {
       return NextResponse.json(
@@ -47,38 +33,44 @@ export async function GET(
         { status: 404 }
       );
     }
+    
+    const course = session.courseId as any;
+
+    const formattedSession = {
+      id: session._id,
+      courseId: course._id,
+      courseName: course.name,
+      courseCode: course.code,
+      startTime: session.startTime,
+      endTime: session.endTime,
+      status: session.status,
+      sessionDate: session.sessionDate,
+    };
 
     // Get all enrolled students with their attendance records
-    const enrolledStudents = await db
-      .select({
-        studentId: students.id,
-        rollNumber: students.rollNumber,
-        firstName: users.firstName,
-        lastName: users.lastName,
-        photoUrl: students.photoUrl,
-      })
-      .from(enrollments)
-      .innerJoin(students, eq(enrollments.studentId, students.id))
-      .innerJoin(users, eq(students.clerkUserId, users.clerkUserId))
-      .where(eq(enrollments.courseId, session.courseId));
+    const enrollments = await Enrollment.find({ courseId: course._id }).populate({
+      path: 'studentId',
+      populate: {
+        path: 'user'
+      }
+    }).lean();
 
-    const records = await db
-      .select()
-      .from(attendanceRecords)
-      .where(eq(attendanceRecords.sessionId, parseInt(sessionId)));
+    const records = await AttendanceRecord.find({ sessionId }).lean();
+    const recordMap = new Map(records.map((r: any) => [r.studentId.toString(), r]));
 
-    const recordMap = new Map(records.map((r) => [r.studentId, r]));
-
-    const studentRecords = enrolledStudents.map((s) => {
-      const record = recordMap.get(s.studentId);
+    const studentRecords = enrollments.map((e: any) => {
+      const student = e.studentId as any;
+      const userObj = student?.user as any;
+      const record = recordMap.get(student?._id.toString());
+      
       return {
-        id: record?.id ?? null,
-        studentId: s.studentId,
-        studentName: [s.firstName, s.lastName].filter(Boolean).join(" "),
-        rollNumber: s.rollNumber,
-        photoUrl: s.photoUrl,
+        id: record?._id ?? null,
+        studentId: student?._id,
+        studentName: userObj ? `${userObj.firstName} ${userObj.lastName}` : "Unknown",
+        rollNumber: student?.rollNumber,
+        photoUrl: student?.photoUrl,
         status: record?.status ?? "absent",
-        markedAt: record?.markedAt?.toISOString() ?? null,
+        markedAt: record?.markedAt ? new Date(record.markedAt).toISOString() : null,
         confidenceScore: record?.confidenceScore ?? null,
         isManualEntry: record?.isManualEntry ?? false,
       };
@@ -89,9 +81,9 @@ export async function GET(
     ).length;
 
     return NextResponse.json({
-      ...session,
+      ...formattedSession,
       records: studentRecords,
-      totalStudents: enrolledStudents.length,
+      totalStudents: enrollments.length,
       presentCount,
     });
   } catch (error) {
@@ -113,11 +105,9 @@ export async function PUT(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const [user] = await db
-      .select()
-      .from(users)
-      .where(eq(users.clerkUserId, userId))
-      .limit(1);
+    await getDb();
+
+    const user = await User.findOne({ clerkUserId: userId });
 
     if (!user || user.role !== "teacher") {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -125,16 +115,10 @@ export async function PUT(
 
     const { sessionId } = await params;
 
-    const [session] = await db
-      .select()
-      .from(attendanceSessions)
-      .where(
-        and(
-          eq(attendanceSessions.id, parseInt(sessionId)),
-          eq(attendanceSessions.teacherId, user.id)
-        )
-      )
-      .limit(1);
+    const session = await AttendanceSession.findOne({
+      _id: sessionId,
+      teacherId: user._id
+    });
 
     if (!session) {
       return NextResponse.json(
@@ -143,19 +127,19 @@ export async function PUT(
       );
     }
 
-    const [updated] = await db
-      .update(attendanceSessions)
-      .set({ status: "ended", endTime: new Date() })
-      .where(eq(attendanceSessions.id, parseInt(sessionId)))
-      .returning();
-
-    await pusherServer.trigger(
-      CHANNELS.session(parseInt(sessionId)),
-      EVENTS.SESSION_ENDED,
-      { sessionId: parseInt(sessionId) }
+    const updated = await AttendanceSession.findByIdAndUpdate(
+      sessionId,
+      { status: "ended", endTime: new Date() },
+      { new: true }
     );
 
-    return NextResponse.json(updated);
+    await pusherServer.trigger(
+      CHANNELS.session(sessionId),
+      EVENTS.SESSION_ENDED,
+      { sessionId }
+    );
+
+    return NextResponse.json({ ...updated?.toObject(), id: updated?._id });
   } catch (error) {
     console.error("[SESSION_PUT]", error);
     return NextResponse.json(

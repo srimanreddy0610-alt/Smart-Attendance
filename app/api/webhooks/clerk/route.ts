@@ -1,9 +1,8 @@
 import { headers } from "next/headers";
 import { Webhook } from "svix";
 import { WebhookEvent } from "@clerk/nextjs/server";
-import { db } from "@/lib/db";
-import { users } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { getDb } from "@/lib/db";
+import { User } from "@/lib/db/schema";
 
 export async function POST(req: Request) {
   const WEBHOOK_SECRET = process.env.CLERK_WEBHOOK_SECRET;
@@ -36,46 +35,49 @@ export async function POST(req: Request) {
     return new Response("Invalid signature", { status: 400 });
   }
 
+  await getDb();
   const eventType = evt.type;
 
   if (eventType === "user.created") {
-    const { id, email_addresses, first_name, last_name } = evt.data;
+    const { id, email_addresses, first_name, last_name, public_metadata } = evt.data;
     const email = email_addresses[0]?.email_address ?? "";
-    const teacherEmails = (process.env.TEACHER_EMAILS ?? "")
-      .split(",")
-      .map((e) => e.trim().toLowerCase())
-      .filter(Boolean);
-    const role: "teacher" | "student" = teacherEmails.includes(
-      email.toLowerCase()
-    )
-      ? "teacher"
-      : "student";
+    
+    // Assign role based on registration metadata
+    const role: any = public_metadata?.role || "student";
 
-    await db.insert(users).values({
+    console.log(`[WEBHOOK] Creating user ${id}, Email: ${email}, Role: ${role}, Metadata:`, public_metadata);
+
+    await User.create({
       clerkUserId: id,
       email,
-      firstName: first_name,
-      lastName: last_name,
+      firstName: first_name || undefined,
+      lastName: last_name || undefined,
       role,
     });
   }
 
   if (eventType === "user.updated") {
-    const { id, email_addresses, first_name, last_name } = evt.data;
-    await db
-      .update(users)
-      .set({
-        email: email_addresses[0]?.email_address ?? "",
-        firstName: first_name,
-        lastName: last_name,
-      })
-      .where(eq(users.clerkUserId, id));
+    const { id, email_addresses, first_name, last_name, public_metadata } = evt.data;
+    const updateData: any = {
+      email: email_addresses[0]?.email_address ?? "",
+      firstName: first_name || undefined,
+      lastName: last_name || undefined,
+    };
+
+    if (public_metadata?.role) {
+      updateData.role = public_metadata.role;
+    }
+
+    await User.updateOne(
+      { clerkUserId: id },
+      { $set: updateData }
+    );
   }
 
   if (eventType === "user.deleted") {
     const { id } = evt.data;
     if (id) {
-      await db.delete(users).where(eq(users.clerkUserId, id));
+      await User.deleteOne({ clerkUserId: id });
     }
   }
 

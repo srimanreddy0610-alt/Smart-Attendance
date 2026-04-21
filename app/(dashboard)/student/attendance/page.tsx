@@ -1,32 +1,29 @@
 import { redirect } from "next/navigation";
 import { auth } from "@clerk/nextjs/server";
-import { db } from "@/lib/db";
-import { students, enrollments, courses } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { getDb } from "@/lib/db";
+import { Student, Enrollment } from "@/lib/db/schema";
 import { AttendanceHistory } from "@/components/student/attendance-history";
 
 export default async function StudentAttendancePage() {
   const { userId } = await auth();
   if (!userId) redirect("/sign-in");
 
-  const [student] = await db
-    .select()
-    .from(students)
-    .where(eq(students.clerkUserId, userId))
-    .limit(1);
+  await getDb();
+
+  const student = await Student.findOne({ clerkUserId: userId });
 
   if (!student) redirect("/onboarding");
 
-  const enrolledCourses = await db
-    .select({
-      courseId: courses.id,
-      courseName: courses.name,
-      courseCode: courses.code,
-    })
-    .from(enrollments)
-    .innerJoin(courses, eq(enrollments.courseId, courses.id))
-    .where(eq(enrollments.studentId, student.id))
-    .orderBy(courses.name);
+  const enrollmentsList = await Enrollment.find({ studentId: student._id }).populate('courseId').lean();
+
+  const enrolledCourses = enrollmentsList.map((e: any) => {
+    const c = e.courseId as any;
+    return {
+      courseId: c?._id.toString(),
+      courseName: c?.name,
+      courseCode: c?.code,
+    };
+  }).sort((a: any, b: any) => (a.courseName || "").localeCompare(b.courseName || ""));
 
   return (
     <div className="space-y-6">

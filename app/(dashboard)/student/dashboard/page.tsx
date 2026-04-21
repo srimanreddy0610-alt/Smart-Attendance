@@ -1,21 +1,11 @@
 import { redirect } from "next/navigation";
 import { auth } from "@clerk/nextjs/server";
-import { db } from "@/lib/db";
-import {
-  users,
-  students,
-  enrollments,
-  courses,
-  attendanceSessions,
-  attendanceRecords,
-  timetable,
-} from "@/lib/db/schema";
-import { eq, and, sql } from "drizzle-orm";
+import { getDb } from "@/lib/db";
+import { Student, User, Enrollment, AttendanceRecord, AttendanceSession, Timetable } from "@/lib/db/schema";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   BookOpen,
-  ClipboardCheck,
   Calendar,
   AlertCircle,
   Clock,
@@ -30,95 +20,73 @@ export default async function StudentDashboard() {
   const { userId } = await auth();
   if (!userId) redirect("/sign-in");
 
-  const [student] = await db
-    .select()
-    .from(students)
-    .where(eq(students.clerkUserId, userId))
-    .limit(1);
+  await getDb();
+
+  const student = await Student.findOne({ clerkUserId: userId });
 
   if (!student) redirect("/onboarding");
 
-  const [user] = await db
-    .select()
-    .from(users)
-    .where(eq(users.clerkUserId, userId))
-    .limit(1);
+  const user = await User.findOne({ clerkUserId: userId });
 
   // Enrolled courses
-  const enrolledCourses = await db
-    .select({
-      courseId: courses.id,
-      courseName: courses.name,
-      courseCode: courses.code,
-      teacherName: sql<string>`CONCAT(${users.firstName}, ' ', ${users.lastName})`.as("teacher_name"),
-    })
-    .from(enrollments)
-    .innerJoin(courses, eq(enrollments.courseId, courses.id))
-    .innerJoin(users, eq(courses.teacherId, users.id))
-    .where(eq(enrollments.studentId, student.id));
+  const enrollmentsList = await Enrollment.find({ studentId: student._id }).populate({
+    path: 'courseId',
+    populate: { path: 'teacherId' }
+  }).lean();
+
+  const enrolledCourses = enrollmentsList.map((e: any) => {
+    const c = e.courseId as any;
+    const teacher = c?.teacherId as any;
+    return {
+      courseId: c?._id.toString(),
+      courseName: c?.name,
+      courseCode: c?.code,
+      teacherName: teacher ? `${teacher.firstName} ${teacher.lastName}` : "Unknown",
+    };
+  });
 
   const courseIds = enrolledCourses.map((c) => c.courseId);
 
   // Attendance stats
-  const totalRecords = await db
-    .select({ count: sql<number>`COUNT(*)`.as("count") })
-    .from(attendanceRecords)
-    .where(eq(attendanceRecords.studentId, student.id));
+  const total = await AttendanceRecord.countDocuments({ studentId: student._id });
+  const present = await AttendanceRecord.countDocuments({
+    studentId: student._id,
+    status: "present"
+  });
 
-  const presentRecords = await db
-    .select({ count: sql<number>`COUNT(*)`.as("count") })
-    .from(attendanceRecords)
-    .where(
-      and(
-        eq(attendanceRecords.studentId, student.id),
-        eq(attendanceRecords.status, "present")
-      )
-    );
-
-  const total = Number(totalRecords[0]?.count ?? 0);
-  const present = Number(presentRecords[0]?.count ?? 0);
   const percentage = total > 0 ? Math.round((present / total) * 100) : 0;
 
   // Active sessions for enrolled courses
-  const activeSessions = courseIds.length > 0
-    ? await db
-        .select({
-          sessionId: attendanceSessions.id,
-          courseName: courses.name,
-          startTime: attendanceSessions.startTime,
-        })
-        .from(attendanceSessions)
-        .innerJoin(courses, eq(attendanceSessions.courseId, courses.id))
-        .where(
-          and(
-            eq(attendanceSessions.status, "active"),
-            sql`${attendanceSessions.courseId} IN (${sql.join(courseIds.map(id => sql`${id}`), sql`, `)})`
-          )
-        )
+  const activeSessionsRaw = courseIds.length > 0
+    ? await AttendanceSession.find({
+        courseId: { $in: courseIds },
+        status: "active"
+      }).populate('courseId').lean()
     : [];
+
+  const activeSessions = activeSessionsRaw.map((s: any) => ({
+    sessionId: s._id.toString(),
+    courseName: s.courseId?.name,
+    startTime: s.startTime
+  }));
 
   // Today's timetable
   const today = new Date().getDay();
   const dayOfWeek = today === 0 ? 7 : today;
 
-  const todaysClasses = courseIds.length > 0
-    ? await db
-        .select({
-          courseName: courses.name,
-          startTime: timetable.startTime,
-          endTime: timetable.endTime,
-          roomNumber: timetable.roomNumber,
-        })
-        .from(timetable)
-        .innerJoin(courses, eq(timetable.courseId, courses.id))
-        .where(
-          and(
-            eq(timetable.dayOfWeek, dayOfWeek),
-            sql`${timetable.courseId} IN (${sql.join(courseIds.map(id => sql`${id}`), sql`, `)})`
-          )
-        )
-        .orderBy(timetable.startTime)
+  const todaysClassesRaw = courseIds.length > 0
+    ? await Timetable.find({
+        courseId: { $in: courseIds },
+        dayOfWeek
+      }).populate('courseId').sort({ startTime: 1 }).lean()
     : [];
+
+  const todaysClasses = todaysClassesRaw.map((t: any) => ({
+    courseName: t.courseId?.name,
+    startTime: t.startTime,
+    endTime: t.endTime,
+    roomNumber: t.roomNumber
+  }));
 
   return (
     <div className="space-y-6">

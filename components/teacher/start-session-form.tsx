@@ -18,9 +18,9 @@ import { Slider } from "@/components/ui/slider";
 import Link from "next/link";
 
 interface StartSessionFormProps {
-  courseId: number;
+  courseId: string;
   courseName: string;
-  activeSessionId?: number;
+  activeSessionId?: string;
 }
 
 export function StartSessionForm({

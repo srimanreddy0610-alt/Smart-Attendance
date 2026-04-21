@@ -1,10 +1,9 @@
-import { db } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import {
-  attendanceSessions,
-  attendanceRecords,
-  enrollments,
+  AttendanceSession,
+  AttendanceRecord,
+  Enrollment,
 } from "@/lib/db/schema";
-import { eq, and, lt, isNotNull } from "drizzle-orm";
 import { pusherServer } from "@/lib/pusher/server";
 import { CHANNELS, EVENTS } from "@/lib/pusher/channels";
 
@@ -18,58 +17,44 @@ export async function POST(req: Request) {
     return new Response("Unauthorized", { status: 401 });
   }
 
+  await getDb();
+
   const now = new Date();
 
-  const activeSessions = await db
-    .select()
-    .from(attendanceSessions)
-    .where(
-      and(
-        eq(attendanceSessions.status, "active"),
-        lt(attendanceSessions.endTime, now)
-      )
-    );
+  const activeSessions = await AttendanceSession.find({
+    status: "active",
+    endTime: { $lt: now }
+  });
 
   for (const session of activeSessions) {
-    await db
-      .update(attendanceSessions)
-      .set({ status: "ended" })
-      .where(eq(attendanceSessions.id, session.id));
+    await AttendanceSession.findByIdAndUpdate(session._id, { status: "ended" });
 
-    const enrolledStudents = await db
-      .select({ studentId: enrollments.studentId })
-      .from(enrollments)
-      .where(eq(enrollments.courseId, session.courseId));
+    const enrolledStudents = await Enrollment.find({ courseId: session.courseId }, 'studentId');
 
-    const markedStudents = await db
-      .select({ studentId: attendanceRecords.studentId })
-      .from(attendanceRecords)
-      .where(
-        and(
-          eq(attendanceRecords.sessionId, session.id),
-          eq(attendanceRecords.status, "present")
-        )
-      );
+    const markedStudents = await AttendanceRecord.find({
+      sessionId: session._id,
+      status: "present"
+    }, 'studentId');
 
-    const markedSet = new Set(markedStudents.map((r) => r.studentId));
+    const markedSet = new Set(markedStudents.map((r) => r.studentId.toString()));
 
     const absentRecords = enrolledStudents
-      .filter((e) => !markedSet.has(e.studentId))
+      .filter((e) => !markedSet.has(e.studentId.toString()))
       .map((e) => ({
-        sessionId: session.id,
+        sessionId: session._id,
         studentId: e.studentId,
         status: "absent" as const,
         createdAt: now,
       }));
 
     if (absentRecords.length > 0) {
-      await db.insert(attendanceRecords).values(absentRecords);
+      await AttendanceRecord.insertMany(absentRecords);
     }
 
     await pusherServer.trigger(
-      CHANNELS.session(session.id),
+      CHANNELS.session(session._id.toString()),
       EVENTS.SESSION_ENDED,
-      { sessionId: session.id }
+      { sessionId: session._id.toString() }
     );
   }
 

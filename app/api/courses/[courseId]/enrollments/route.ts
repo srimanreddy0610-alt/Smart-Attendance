@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { db } from "@/lib/db";
-import { courses, enrollments, students, users } from "@/lib/db/schema";
-import { eq, and } from "drizzle-orm";
+import { getDb } from "@/lib/db";
+import { Course, Enrollment, Student, User } from "@/lib/db/schema";
 
 export async function GET(
   req: Request,
@@ -15,26 +14,34 @@ export async function GET(
     }
 
     const { courseId } = await params;
+    await getDb();
 
-    const enrolledStudents = await db
-      .select({
-        enrollmentId: enrollments.id,
-        studentId: students.id,
-        rollNumber: students.rollNumber,
-        department: students.department,
-        semester: students.semester,
-        section: students.section,
-        photoUrl: students.photoUrl,
-        firstName: users.firstName,
-        lastName: users.lastName,
-        email: users.email,
-        enrolledAt: enrollments.enrolledAt,
-      })
-      .from(enrollments)
-      .innerJoin(students, eq(enrollments.studentId, students.id))
-      .innerJoin(users, eq(students.clerkUserId, users.clerkUserId))
-      .where(eq(enrollments.courseId, parseInt(courseId)))
-      .orderBy(students.rollNumber);
+    const enrollments = await Enrollment.find({ courseId })
+      .populate({
+        path: 'studentId',
+        populate: {
+          path: 'user',
+          select: 'firstName lastName email clerkUserId'
+        }
+      }).lean();
+
+    const enrolledStudents = enrollments.map((e: any) => {
+      const student = e.studentId;
+      const user = student?.user;
+      return {
+        enrollmentId: e._id,
+        studentId: student?._id,
+        rollNumber: student?.rollNumber,
+        department: student?.department,
+        semester: student?.semester,
+        section: student?.section,
+        photoUrl: student?.photoUrl,
+        firstName: user?.firstName,
+        lastName: user?.lastName,
+        email: user?.email,
+        enrolledAt: e.enrolledAt,
+      };
+    }).sort((a: any, b: any) => (a.rollNumber || "").localeCompare(b.rollNumber || ""));
 
     return NextResponse.json(enrolledStudents);
   } catch (error) {
@@ -56,11 +63,9 @@ export async function POST(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const [user] = await db
-      .select()
-      .from(users)
-      .where(eq(users.clerkUserId, userId))
-      .limit(1);
+    await getDb();
+
+    const user = await User.findOne({ clerkUserId: userId });
 
     if (!user || user.role !== "teacher") {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -77,11 +82,7 @@ export async function POST(
       );
     }
 
-    const [student] = await db
-      .select()
-      .from(students)
-      .where(eq(students.rollNumber, rollNumber))
-      .limit(1);
+    const student = await Student.findOne({ rollNumber });
 
     if (!student) {
       return NextResponse.json(
@@ -90,16 +91,10 @@ export async function POST(
       );
     }
 
-    const [existing] = await db
-      .select()
-      .from(enrollments)
-      .where(
-        and(
-          eq(enrollments.courseId, parseInt(courseId)),
-          eq(enrollments.studentId, student.id)
-        )
-      )
-      .limit(1);
+    const existing = await Enrollment.findOne({
+      courseId,
+      studentId: student._id
+    });
 
     if (existing) {
       return NextResponse.json(
@@ -108,13 +103,10 @@ export async function POST(
       );
     }
 
-    const [enrollment] = await db
-      .insert(enrollments)
-      .values({
-        courseId: parseInt(courseId),
-        studentId: student.id,
-      })
-      .returning();
+    const enrollment = await Enrollment.create({
+      courseId,
+      studentId: student._id,
+    });
 
     return NextResponse.json(enrollment, { status: 201 });
   } catch (error) {
@@ -136,11 +128,9 @@ export async function DELETE(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const [user] = await db
-      .select()
-      .from(users)
-      .where(eq(users.clerkUserId, userId))
-      .limit(1);
+    await getDb();
+
+    const user = await User.findOne({ clerkUserId: userId });
 
     if (!user || user.role !== "teacher") {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -157,14 +147,10 @@ export async function DELETE(
       );
     }
 
-    await db
-      .delete(enrollments)
-      .where(
-        and(
-          eq(enrollments.courseId, parseInt(courseId)),
-          eq(enrollments.studentId, parseInt(studentId))
-        )
-      );
+    await Enrollment.deleteOne({
+      courseId,
+      studentId
+    });
 
     return NextResponse.json({ success: true });
   } catch (error) {
