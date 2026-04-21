@@ -19,7 +19,7 @@ export function OnboardingView() {
       {step === "role" ? (
         <RoleSelection onSelectStudent={() => setStep("student_info")} />
       ) : (
-        <div className="w-full max-w-lg">
+        <div className="w-full max-w-3xl">
            <OnboardingForm />
         </div>
       )}

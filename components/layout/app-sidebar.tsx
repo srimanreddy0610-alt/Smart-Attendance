@@ -9,6 +9,8 @@ import {
   History,
   BarChart3,
   GraduationCap,
+  Calendar,
+  LayoutGrid,
 } from "lucide-react";
 import {
   Sidebar,
@@ -40,9 +42,19 @@ const studentNavItems = [
     icon: History,
   },
   {
+    title: "Weekly Schedule",
+    href: "/student/timetable",
+    icon: Calendar,
+  },
+  {
     title: "Face Enrollment",
     href: "/student/face-enrollment",
     icon: ScanFace,
+  },
+  {
+    title: "Profile",
+    href: "/student/profile",
+    icon: GraduationCap,
   },
 ];
 
@@ -74,6 +86,11 @@ const adminNavItems = [
     title: "Teachers",
     href: "/admin/teachers",
     icon: GraduationCap,
+  },
+  {
+    title: "Academic Streams",
+    href: "/admin/streams",
+    icon: LayoutGrid,
   },
 ];
 

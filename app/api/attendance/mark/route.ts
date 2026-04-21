@@ -45,10 +45,10 @@ export async function POST(req: Request) {
       );
     }
 
-    const { sessionId, faceDescriptor, confidenceScore, verificationFrames } =
+    const { sessionId, faceDescriptor, confidenceScore, verificationFrames, accessCode } =
       parsed.data;
 
-    // Verify session is active
+    // Verify session is active and check access code
     const session = await AttendanceSession.findOne({
       _id: sessionId,
       status: "active"
@@ -58,6 +58,13 @@ export async function POST(req: Request) {
       return NextResponse.json(
         { error: "Session not found or already ended" },
         { status: 404 }
+      );
+    }
+
+    if (session.accessCode && session.accessCode.toUpperCase() !== accessCode.toUpperCase()) {
+      return NextResponse.json(
+        { error: "Invalid access code" },
+        { status: 403 }
       );
     }
 

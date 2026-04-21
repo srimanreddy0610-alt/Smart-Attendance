@@ -45,6 +45,7 @@ export async function GET(
       endTime: session.endTime,
       status: session.status,
       sessionDate: session.sessionDate,
+      accessCode: session.accessCode,
     };
 
     // Get all enrolled students with their attendance records

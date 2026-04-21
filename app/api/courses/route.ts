@@ -79,6 +79,18 @@ export async function GET() {
       return NextResponse.json(coursesWithCounts);
     }
 
+    // Handle generic GET with query params
+    const { searchParams } = new URL(req.url);
+    const streamId = searchParams.get("streamId");
+    const section = searchParams.get("section");
+
+    if (streamId) {
+      const query: any = { streamId };
+      if (section) query.section = section;
+      const courses = await Course.find(query).sort({ name: 1 }).lean();
+      return NextResponse.json(courses);
+    }
+
     // Student: get enrolled courses
     const student = await Student.findOne({ clerkUserId: userId });
 

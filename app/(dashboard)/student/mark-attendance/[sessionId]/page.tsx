@@ -145,6 +145,7 @@ export default async function MarkAttendancePage({
         sessionId={session._id.toString()}
         courseName={course.name}
         storedDescriptor={JSON.parse(student.faceDescriptor)}
+        expectedAccessCode={session.accessCode}
       />
     </div>
   );

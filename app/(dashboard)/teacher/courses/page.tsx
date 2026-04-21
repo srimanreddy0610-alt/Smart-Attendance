@@ -25,7 +25,7 @@ export default async function TeacherCoursesPage() {
       department: c.department,
       semester: c.semester,
       section: c.section,
-      createdAt: c.createdAt,
+      createdAt: c.createdAt instanceof Date ? c.createdAt.toISOString() : c.createdAt,
       studentCount,
     };
   }));

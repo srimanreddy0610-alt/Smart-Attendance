@@ -9,6 +9,7 @@ import {
   Trash2,
   Loader2,
   UserPlus,
+  Pencil,
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -40,11 +41,23 @@ import {
 import { Label } from "@/components/ui/label";
 import Link from "next/link";
 
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { courseSchema, type CourseValues } from "@/lib/validations/course";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+
 const dayNames = ["", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
 interface CourseDetailTabsProps {
   course: {
-    id: number;
+    id: string;
     name: string;
     code: string;
     department: string;
@@ -52,24 +65,24 @@ interface CourseDetailTabsProps {
     section: string;
   };
   enrolledStudents: Array<{
-    enrollmentId: number;
-    studentId: number;
+    enrollmentId: string;
+    studentId: string;
     rollNumber: string;
     firstName: string | null;
     lastName: string | null;
     email: string;
-    enrolledAt: Date;
+    enrolledAt: string;
   }>;
   recentSessions: Array<{
-    id: number;
-    sessionDate: Date;
-    startTime: Date;
-    endTime: Date | null;
+    id: string;
+    sessionDate: string;
+    startTime: string;
+    endTime: string | null;
     status: "active" | "ended";
     presentCount: number;
   }>;
   timetableEntries: Array<{
-    id: number;
+    id: string;
     dayOfWeek: number;
     startTime: string;
     endTime: string;
@@ -89,11 +102,72 @@ export function CourseDetailTabs({
   const [rollNumber, setRollNumber] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
+  // Course edit form
+  const form = useForm<CourseValues>({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    resolver: zodResolver(courseSchema as any),
+    defaultValues: {
+      name: course.name,
+      code: course.code,
+      department: course.department,
+      streamId: (course as any).streamId || "",
+      semester: course.semester,
+      section: course.section,
+    },
+  });
+
+  const [streams, setStreams] = useState<any[]>([]);
+
+  useEffect(() => {
+    fetch("/api/streams").then(res => res.json()).then(setStreams).catch(() => {});
+  }, []);
+  const resetTimetableForm = () => {
+    setTtDay("1");
+    setTtStart("09:00");
+    setTtEnd("10:00");
+    setTtRoom("");
+    setEditingTimetable(null);
+  };
+
+  // Timetable editing state
+  const [editingTimetable, setEditingTimetable] = useState<any>(null);
+
   // Timetable form state
   const [ttDay, setTtDay] = useState("1");
   const [ttStart, setTtStart] = useState("09:00");
   const [ttEnd, setTtEnd] = useState("10:00");
   const [ttRoom, setTtRoom] = useState("");
+
+  const resetTimetableForm = () => {
+    setTtDay("1");
+    setTtStart("09:00");
+    setTtEnd("10:00");
+    setTtRoom("");
+    setEditingTimetable(null);
+  };
+
+  async function onUpdateCourse(values: CourseValues) {
+    setIsLoading(true);
+    try {
+      const res = await fetch(`/api/courses/${course.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(values),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to update course");
+      }
+
+      toast.success("Course updated successfully!");
+      router.refresh();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed");
+    } finally {
+      setIsLoading(false);
+    }
+  }
 
   async function handleAddStudent() {
     if (!rollNumber.trim()) return;
@@ -119,7 +193,7 @@ export function CourseDetailTabs({
     }
   }
 
-  async function handleRemoveStudent(studentId: number) {
+  async function handleRemoveStudent(studentId: string) {
     try {
       const res = await fetch(
         `/api/courses/${course.id}/enrollments?studentId=${studentId}`,
@@ -136,22 +210,31 @@ export function CourseDetailTabs({
   async function handleAddTimetable() {
     setIsLoading(true);
     try {
-      const res = await fetch(`/api/courses/${course.id}/timetable`, {
-        method: "POST",
+      const payload = {
+        dayOfWeek: parseInt(ttDay),
+        startTime: ttStart,
+        endTime: ttEnd,
+        roomNumber: ttRoom || undefined,
+      };
+
+      const url = editingTimetable 
+        ? `/api/courses/${course.id}/timetable?timetableId=${editingTimetable.id}`
+        : `/api/courses/${course.id}/timetable`;
+      
+      const method = editingTimetable ? "PATCH" : "POST";
+
+      const res = await fetch(url, {
+        method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          dayOfWeek: parseInt(ttDay),
-          startTime: ttStart,
-          endTime: ttEnd,
-          roomNumber: ttRoom || undefined,
-        }),
+        body: JSON.stringify(payload),
       });
       if (!res.ok) {
         const data = await res.json();
-        throw new Error(data.error || "Failed to add schedule");
+        throw new Error(data.error || "Failed to save schedule");
       }
-      toast.success("Schedule added!");
+      toast.success(editingTimetable ? "Schedule updated!" : "Schedule added!");
       setAddTimetableOpen(false);
+      resetTimetableForm();
       router.refresh();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed");
@@ -160,7 +243,16 @@ export function CourseDetailTabs({
     }
   }
 
-  async function handleDeleteTimetable(timetableId: number) {
+  function startEditingTimetable(t: any) {
+    setEditingTimetable(t);
+    setTtDay(String(t.dayOfWeek));
+    setTtStart(t.startTime);
+    setTtEnd(t.endTime);
+    setTtRoom(t.roomNumber || "");
+    setAddTimetableOpen(true);
+  }
+
+  async function handleDeleteTimetable(timetableId: string) {
     try {
       const res = await fetch(
         `/api/courses/${course.id}/timetable?timetableId=${timetableId}`,
@@ -185,6 +277,9 @@ export function CourseDetailTabs({
         </TabsTrigger>
         <TabsTrigger value="timetable">
           Timetable ({timetableEntries.length})
+        </TabsTrigger>
+        <TabsTrigger value="settings">
+          Settings
         </TabsTrigger>
       </TabsList>
 
@@ -371,9 +466,9 @@ export function CourseDetailTabs({
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Add Class Schedule</DialogTitle>
+                <DialogTitle>{editingTimetable ? "Edit Schedule" : "Add Class Schedule"}</DialogTitle>
                 <DialogDescription>
-                  Add a recurring class schedule
+                  {editingTimetable ? "Modify this class timing" : "Add a recurring class schedule"}
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4">
@@ -426,7 +521,7 @@ export function CourseDetailTabs({
                   {isLoading && (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   )}
-                  Add Schedule
+                  {editingTimetable ? "Save Changes" : "Add Schedule"}
                 </Button>
               </div>
             </DialogContent>
@@ -461,13 +556,22 @@ export function CourseDetailTabs({
                       <TableCell>{t.endTime}</TableCell>
                       <TableCell>{t.roomNumber || "-"}</TableCell>
                       <TableCell>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleDeleteTimetable(t.id)}
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => startEditingTimetable(t)}
+                          >
+                            <Pencil className="h-4 w-4 text-muted-foreground" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleDeleteTimetable(t.id)}
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -475,6 +579,125 @@ export function CourseDetailTabs({
               </Table>
             )}
           </div>
+        </div>
+      </TabsContent>
+      
+      {/* Settings Tab */}
+      <TabsContent value="settings" className="space-y-6">
+        <div className="rounded-xl border bg-card p-6">
+          <h3 className="text-lg font-bold mb-4">Edit Course Details</h3>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onUpdateCourse)} className="space-y-4 max-w-2xl">
+              <FormField
+                control={form.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Course Name</FormLabel>
+                    <FormControl>
+                      <Input {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="code"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Course Code</FormLabel>
+                    <FormControl>
+                      <Input {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="streamId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Academic Stream</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select stream" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {streams.map((s) => (
+                          <SelectItem key={s._id} value={s._id}>{s.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="semester"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Semester</FormLabel>
+                      <Select onValueChange={(val) => field.onChange(Number(val))} defaultValue={String(field.value)}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {Array.from({ length: 10 }, (_, i) => i + 1).map((s) => (
+                            <SelectItem key={s} value={String(s)}>Sem {s}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="section"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Section</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {["A", "B", "C", "D"].map((s) => (
+                            <SelectItem key={s} value={s}>{s}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+              <Button type="submit" disabled={isLoading}>
+                {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Save Changes
+              </Button>
+            </form>
+          </Form>
+        </div>
+
+        <div className="rounded-xl border border-destructive/20 bg-destructive/5 p-6">
+          <h3 className="text-lg font-bold text-destructive mb-2">Danger Zone</h3>
+          <p className="text-sm text-muted-foreground mb-4">
+            Deleting this course will remove all enrollments and attendance history. This action cannot be undone.
+          </p>
+          <Button variant="destructive" size="sm">
+            Delete Course
+          </Button>
         </div>
       </TabsContent>
     </Tabs>

@@ -34,6 +34,7 @@ export interface IStudent extends Document {
   department: string;
   semester: number;
   section: string;
+  streamId: mongoose.Types.ObjectId | IStream | string;
   photoUrl?: string;
   faceDescriptor?: string;
   createdAt: Date;
@@ -45,17 +46,32 @@ const studentSchema = new Schema<IStudent>({
   department: { type: String, required: true },
   semester: { type: Number, required: true },
   section: { type: String, required: true },
+  streamId: { type: Schema.Types.ObjectId, ref: "Stream", required: true },
   photoUrl: { type: String },
   faceDescriptor: { type: String },
   createdAt: { type: Date, default: Date.now, required: true },
 });
 export const Student: Model<IStudent> = mongoose.models.Student || mongoose.model<IStudent>("Student", studentSchema);
 
+// --- Stream Schema ---
+export interface IStream extends Document {
+  name: string;
+  description?: string;
+  createdAt: Date;
+}
+const streamSchema = new Schema<IStream>({
+  name: { type: String, required: true, unique: true },
+  description: { type: String },
+  createdAt: { type: Date, default: Date.now, required: true },
+});
+export const Stream: Model<IStream> = mongoose.models.Stream || mongoose.model<IStream>("Stream", streamSchema);
+
 // --- Course Schema ---
 export interface ICourse extends Document {
   name: string;
   code: string;
   teacherId: mongoose.Types.ObjectId | IUser | string;
+  streamId: mongoose.Types.ObjectId | IStream | string;
   department: string;
   semester: number;
   section: string;
@@ -65,6 +81,7 @@ const courseSchema = new Schema<ICourse>({
   name: { type: String, required: true },
   code: { type: String, required: true },
   teacherId: { type: Schema.Types.ObjectId, ref: "User", required: true },
+  streamId: { type: Schema.Types.ObjectId, ref: "Stream", required: true },
   department: { type: String, required: true },
   semester: { type: Number, required: true },
   section: { type: String, required: true },
@@ -112,6 +129,8 @@ export interface IAttendanceSession extends Document {
   startTime: Date;
   endTime?: Date;
   status: typeof SESSION_STATUSES[number];
+  accessCode?: string;
+  qrUrl?: string; // Optional if we generate it on the fly
   metadata?: any;
   createdAt: Date;
 }
@@ -122,6 +141,8 @@ const attendanceSessionSchema = new Schema<IAttendanceSession>({
   startTime: { type: Date, required: true },
   endTime: { type: Date },
   status: { type: String, enum: SESSION_STATUSES, default: "active", required: true },
+  accessCode: { type: String },
+  qrUrl: { type: String },
   metadata: { type: Schema.Types.Mixed },
   createdAt: { type: Date, default: Date.now, required: true },
 });
@@ -151,3 +172,37 @@ const attendanceRecordSchema = new Schema<IAttendanceRecord>({
   createdAt: { type: Date, default: Date.now, required: true },
 });
 export const AttendanceRecord: Model<IAttendanceRecord> = mongoose.models.AttendanceRecord || mongoose.model<IAttendanceRecord>("AttendanceRecord", attendanceRecordSchema);
+
+// --- Parent Schema ---
+export interface IParent extends Document {
+  clerkUserId: string;
+  user: mongoose.Types.ObjectId | IUser | string;
+  linkedStudents: (mongoose.Types.ObjectId | IStudent | string)[];
+  createdAt: Date;
+}
+
+const parentSchema = new Schema<IParent>({
+  clerkUserId: { type: String, required: true, unique: true },
+  user: { type: Schema.Types.ObjectId, ref: "User", required: true },
+  linkedStudents: [{ type: Schema.Types.ObjectId, ref: "Student" }],
+  createdAt: { type: Date, default: Date.now, required: true },
+});
+
+export const Parent: Model<IParent> = mongoose.models.Parent || mongoose.model<IParent>("Parent", parentSchema);
+
+// --- ParentLinkOTP Schema ---
+export interface IParentLinkOTP extends Document {
+  parentId: string;
+  studentId: mongoose.Types.ObjectId | IStudent | string;
+  otp: string;
+  expiresAt: Date;
+}
+
+const parentLinkOTPSchema = new Schema<IParentLinkOTP>({
+  parentId: { type: String, required: true },
+  studentId: { type: Schema.Types.ObjectId, ref: "Student", required: true },
+  otp: { type: String, required: true },
+  expiresAt: { type: Date, required: true, index: { expires: 0 } }, // Auto-delete after expiration
+});
+
+export const ParentLinkOTP: Model<IParentLinkOTP> = mongoose.models.ParentLinkOTP || mongoose.model<IParentLinkOTP>("ParentLinkOTP", parentLinkOTPSchema);

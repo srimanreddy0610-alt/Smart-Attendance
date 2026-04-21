@@ -64,6 +64,7 @@ export async function POST(req: Request) {
 
     const now = new Date();
     const endTime = new Date(now.getTime() + duration * 60 * 1000);
+    const accessCode = Math.random().toString(36).substring(2, 8).toUpperCase();
 
     const session = await AttendanceSession.create({
       courseId,
@@ -72,6 +73,7 @@ export async function POST(req: Request) {
       startTime: now,
       endTime,
       status: "active",
+      accessCode,
       metadata: { duration },
     });
 

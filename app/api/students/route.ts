@@ -47,6 +47,18 @@ export async function POST(req: Request) {
       section: parsed.data.section,
     });
 
+    // Create enrollments for selected courses
+    if (parsed.data.courseIds && parsed.data.courseIds.length > 0) {
+      const { Enrollment } = await import("@/lib/db/schema");
+      const enrollmentPromises = parsed.data.courseIds.map((courseId) => 
+        Enrollment.create({
+          courseId,
+          studentId: student._id,
+        })
+      );
+      await Promise.all(enrollmentPromises);
+    }
+
     return NextResponse.json(student, { status: 201 });
   } catch (error) {
     console.error("[STUDENTS_POST]", error);

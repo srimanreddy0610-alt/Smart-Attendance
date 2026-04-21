@@ -31,7 +31,7 @@ export default async function TeacherDashboard() {
   const coursesWithStats = await Promise.all(teacherCourses.map(async (c: any) => {
     const studentCount = await Enrollment.countDocuments({ courseId: c._id });
     return {
-      id: c._id,
+      id: c._id.toString(),
       name: c.name,
       code: c.code,
       studentCount
@@ -49,10 +49,10 @@ export default async function TeacherDashboard() {
     : [];
 
   const formattedActiveSessions = activeSessions.map((s: any) => ({
-    id: s._id,
+    id: s._id.toString(),
     courseName: s.courseId?.name,
-    courseId: s.courseId?._id,
-    startTime: s.startTime
+    courseId: s.courseId?._id.toString(),
+    startTime: s.startTime instanceof Date ? s.startTime.toISOString() : s.startTime
   }));
 
   const recentSessions = courseIds.length > 0
@@ -72,12 +72,12 @@ export default async function TeacherDashboard() {
       courseId: s.courseId?._id
     });
     return {
-      id: s._id,
+      id: s._id.toString(),
       courseName: s.courseId?.name,
-      sessionDate: s.sessionDate,
+      sessionDate: s.sessionDate instanceof Date ? s.sessionDate.toISOString() : s.sessionDate,
       status: s.status,
-      presentCount,
-      totalEnrolled
+      presentCount: Number(presentCount),
+      totalEnrolled: Number(totalEnrolled)
     };
   }));
 
@@ -91,13 +91,25 @@ export default async function TeacherDashboard() {
       }).populate('courseId', 'name _id').sort({ startTime: 1 }).lean()
     : [];
 
-  const formattedClasses = todaysClasses.map((t: any) => ({
-    courseName: t.courseId?.name,
-    courseId: t.courseId?._id,
-    startTime: t.startTime,
-    endTime: t.endTime,
-    roomNumber: t.roomNumber
-  }));
+  const now = new Date();
+  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+
+  const formattedClasses = todaysClasses.map((t: any) => {
+    const [startH, startM] = t.startTime.split(':').map(Number);
+    const [endH, endM] = t.endTime.split(':').map(Number);
+    const startTotal = startH * 60 + startM;
+    const endTotal = endH * 60 + endM;
+    const isOngoing = currentMinutes >= startTotal && currentMinutes <= endTotal;
+
+    return {
+      courseName: t.courseId?.name,
+      courseId: t.courseId?._id.toString(),
+      startTime: t.startTime,
+      endTime: t.endTime,
+      roomNumber: t.roomNumber,
+      isOngoing
+    };
+  });
 
   const totalStudents = coursesWithStats.reduce(
     (sum, c) => sum + Number(c.studentCount),
@@ -180,13 +192,18 @@ export default async function TeacherDashboard() {
                 {formattedClasses.map((cls, i) => (
                   <div
                     key={i}
-                    className="flex items-center gap-3 rounded-lg border p-3 hover:bg-muted/50 transition-colors"
+                    className={`flex items-center gap-3 rounded-xl border p-4 transition-all duration-300 ${cls.isOngoing ? 'border-primary bg-primary/5 shadow-md scale-[1.02]' : 'hover:bg-muted/50'}`}
                   >
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10">
-                      <Clock className="h-4 w-4 text-primary" />
+                    <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ${cls.isOngoing ? 'bg-primary text-primary-foreground animate-pulse' : 'bg-primary/10 text-primary'}`}>
+                      <Clock className="h-5 w-5" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="font-medium text-sm truncate">{cls.courseName}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="font-bold text-sm truncate">{cls.courseName}</p>
+                        {cls.isOngoing && (
+                            <Badge variant="default" className="text-[8px] h-4 leading-none bg-primary animate-bounce">NOW</Badge>
+                        )}
+                      </div>
                       <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
                         <span>{cls.startTime} - {cls.endTime}</span>
                         {cls.roomNumber && (
@@ -200,9 +217,14 @@ export default async function TeacherDashboard() {
                         )}
                       </div>
                     </div>
-                    <Button size="sm" variant="outline" asChild>
+                    <Button 
+                        size="sm" 
+                        variant={cls.isOngoing ? "default" : "outline"} 
+                        className={cls.isOngoing ? "shadow-lg shadow-primary/20" : ""}
+                        asChild
+                    >
                       <Link href={`/teacher/courses/${cls.courseId}/session`}>
-                        Start
+                        {cls.isOngoing ? "Start Attendance" : "Start"}
                       </Link>
                     </Button>
                   </div>

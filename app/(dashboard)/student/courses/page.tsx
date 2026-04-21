@@ -24,7 +24,7 @@ export default async function StudentCoursesPage() {
     const c = e.courseId as any;
     const teacher = c?.teacherId as any;
     return {
-      courseId: c?._id,
+      courseId: c?._id.toString(),
       courseName: c?.name,
       courseCode: c?.code,
       department: c?.department,

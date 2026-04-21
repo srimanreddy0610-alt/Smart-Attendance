@@ -78,6 +78,65 @@ export async function POST(
   }
 }
 
+export async function PATCH(
+  req: Request,
+  { params }: { params: Promise<{ courseId: string }> }
+) {
+  try {
+    const { userId } = await auth();
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    await getDb();
+
+    const user = await User.findOne({ clerkUserId: userId });
+
+    if (!user || user.role !== "teacher") {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    const { searchParams } = new URL(req.url);
+    const timetableId = searchParams.get("timetableId");
+
+    if (!timetableId) {
+      return NextResponse.json(
+        { error: "Timetable ID is required" },
+        { status: 400 }
+      );
+    }
+
+    const body = await req.json();
+    const parsed = timetableSchema.safeParse({ ...body, courseId: 1 });
+
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: "Invalid data", details: parsed.error.flatten() },
+        { status: 400 }
+      );
+    }
+
+    const updated = await Timetable.findByIdAndUpdate(
+      timetableId,
+      {
+        dayOfWeek: parsed.data.dayOfWeek,
+        startTime: parsed.data.startTime,
+        endTime: parsed.data.endTime,
+        roomNumber: parsed.data.roomNumber || null,
+      },
+      { new: true }
+    );
+
+    return NextResponse.json({ ...updated?.toObject(), id: updated?._id });
+  } catch (error) {
+    console.error("[TIMETABLE_PATCH]", error);
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    );
+  }
+}
+
 export async function DELETE(
   req: Request,
   { params }: { params: Promise<{ courseId: string }> }

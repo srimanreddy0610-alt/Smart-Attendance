@@ -15,11 +15,11 @@ export default async function FaceEnrollmentPage() {
   if (!student) redirect("/onboarding");
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Face Enrollment</h1>
-        <p className="text-muted-foreground">
-          Register your face for attendance recognition
+    <div className="max-w-2xl mx-auto space-y-8 py-4">
+      <div className="text-center">
+        <h1 className="text-3xl font-bold tracking-tight">Face Enrollment</h1>
+        <p className="text-muted-foreground mt-2 text-lg">
+          Register your face for high-speed attendance recognition
         </p>
       </div>
       <FaceEnrollmentWizard

@@ -7,7 +7,8 @@ import {
   BookOpen, 
   Activity,
   UserCheck,
-  ShieldCheck
+  ShieldCheck,
+  LayoutGrid
 } from "lucide-react";
 import Link from "next/link";
 
@@ -95,13 +96,13 @@ export default async function AdminDashboardPage() {
               <Users className="h-6 w-6 text-primary" />
               <span className="text-xs font-medium">Manage Teachers</span>
             </Link>
-            <button className="flex flex-col items-center justify-center gap-2 rounded-lg border bg-muted/20 p-4 hover:bg-muted/40 transition-colors">
-              <GraduationCap className="h-6 w-6 text-primary" />
-              <span className="text-xs font-medium">Manage Students</span>
-            </button>
+            <Link href="/admin/streams" className="flex flex-col items-center justify-center gap-2 rounded-lg border bg-muted/20 p-4 hover:bg-muted/40 transition-colors">
+              <LayoutGrid className="h-6 w-6 text-primary" />
+              <span className="text-xs font-medium">Manage Streams</span>
+            </Link>
             <button className="flex flex-col items-center justify-center gap-2 rounded-lg border bg-muted/20 p-4 hover:bg-muted/40 transition-colors">
               <BookOpen className="h-6 w-6 text-primary" />
-              <span className="text-xs font-medium">Create Course</span>
+              <span className="text-xs font-medium">Manage Courses</span>
             </button>
             <button className="flex flex-col items-center justify-center gap-2 rounded-lg border bg-muted/20 p-4 hover:bg-muted/40 transition-colors">
               <ShieldCheck className="h-6 w-6 text-primary" />

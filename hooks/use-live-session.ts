@@ -23,6 +23,7 @@ interface SessionData {
   startTime: string;
   endTime: string | null;
   status: "active" | "ended";
+  accessCode?: string;
   records: AttendanceRecord[];
   totalStudents: number;
   presentCount: number;

@@ -10,6 +10,7 @@ export const markAttendanceSchema = z.object({
   faceDescriptor: z.array(z.number()).length(128),
   confidenceScore: z.number().int().min(0).max(100),
   verificationFrames: z.number().int().min(1).max(10),
+  accessCode: z.string().length(6),
 });
 
 export const manualAttendanceSchema = z.object({

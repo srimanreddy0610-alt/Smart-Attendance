@@ -45,7 +45,7 @@ export default async function CourseDetailPage({
       lastName: studentUser?.lastName,
       email: studentUser?.email,
       photoUrl: student?.photoUrl,
-      enrolledAt: e.enrolledAt,
+      enrolledAt: e.enrolledAt instanceof Date ? e.enrolledAt.toISOString() : e.enrolledAt,
     };
   }).sort((a, b) => (a.rollNumber || "").localeCompare(b.rollNumber || ""));
 
@@ -59,9 +59,9 @@ export default async function CourseDetailPage({
     });
     return {
       id: s._id.toString(),
-      sessionDate: s.sessionDate,
-      startTime: s.startTime,
-      endTime: s.endTime,
+      sessionDate: s.sessionDate instanceof Date ? s.sessionDate.toISOString() : s.sessionDate,
+      startTime: s.startTime instanceof Date ? s.startTime.toISOString() : s.startTime,
+      endTime: s.endTime instanceof Date ? s.endTime.toISOString() : s.endTime,
       status: s.status,
       presentCount
     };
@@ -69,12 +69,26 @@ export default async function CourseDetailPage({
 
   // Get timetable
   const timetableDocs = await Timetable.find({ courseId }).sort({ dayOfWeek: 1, startTime: 1 }).lean();
-  const timetableEntries = timetableDocs.map((t: any) => ({ ...t, id: t._id.toString() }));
+  const timetableEntries = timetableDocs.map((t: any) => ({
+    id: t._id.toString(),
+    courseId: t.courseId.toString(),
+    dayOfWeek: t.dayOfWeek,
+    startTime: t.startTime,
+    endTime: t.endTime,
+    roomNumber: t.roomNumber,
+  }));
 
   const formattedCourse = {
-    ...course,
-    id: course._id.toString()
-  } as any;
+    id: course._id.toString(),
+    name: course.name,
+    code: course.code,
+    department: course.department,
+    semester: course.semester,
+    section: course.section,
+    teacherId: course.teacherId.toString(),
+    streamId: course.streamId?.toString() || "",
+    createdAt: course.createdAt instanceof Date ? course.createdAt.toISOString() : course.createdAt,
+  };
 
   return (
     <div className="space-y-6">
