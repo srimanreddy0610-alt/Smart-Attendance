@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getCurrentUser, getSessionUserId } from "@/lib/auth";
 import { getDb } from "@/lib/db";
 import { User } from "@/lib/db/schema";
+import { clerkClient } from "@clerk/nextjs";
 
 export async function POST(req: Request) {
   try {
@@ -22,14 +23,6 @@ export async function POST(req: Request) {
       { _id: userId },
       { $set: { role } }
     );
-
-    // Update Clerk Metadata to persist it
-    const client = await clerkClient();
-    await client.users.updateUserMetadata(userId, {
-      publicMetadata: {
-        role: role
-      }
-    });
 
     console.log(`[AUTH] Manual role update for ${userId} to ${role}`);
 

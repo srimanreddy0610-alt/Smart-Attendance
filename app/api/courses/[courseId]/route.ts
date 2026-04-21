@@ -76,16 +76,16 @@ export async function PUT(
 
     await getDb();
     
-    const user = await User.findById(userId);
+    const dbUser = await User.findById(userId);
 
-    if (!user || user.role !== "teacher") {
+    if (!dbUser || dbUser.role !== "teacher") {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     const { courseId } = await params;
     const course = await Course.findOne({
       _id: courseId,
-      teacherId: user._id
+      teacherId: dbUser._id
     });
 
     if (!course) {
@@ -127,16 +127,16 @@ export async function DELETE(
 
     await getDb();
 
-    const user = await User.findById(userId);
+    const dbUser = await User.findById(userId);
 
-    if (!user || user.role !== "teacher") {
+    if (!dbUser || dbUser.role !== "teacher") {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     const { courseId } = await params;
     const course = await Course.findOne({
       _id: courseId,
-      teacherId: user._id
+      teacherId: dbUser._id
     });
 
     if (!course) {
