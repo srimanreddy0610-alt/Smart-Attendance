@@ -35,7 +35,7 @@ export async function POST(req: Request) {
         success: true, 
         role: user.role 
     }, { status: 201 });
-  } catch (error: any) {
+  } catch (error) {
     console.error("[REGISTER_ERROR]", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }

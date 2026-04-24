@@ -95,6 +95,12 @@ function SidebarProvider({
 
   // Adds a keyboard shortcut to toggle the sidebar.
   React.useEffect(() => {
+    const timer = setTimeout(() => {
+      setWidth(window.innerWidth);
+    }, 0);
+    return () => clearTimeout(timer);
+  }, []);
+  React.useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (
         event.key === SIDEBAR_KEYBOARD_SHORTCUT &&
@@ -607,8 +613,12 @@ function SidebarMenuSkeleton({
   showIcon?: boolean
 }) {
   // Random width between 50 to 90%.
-  const width = React.useMemo(() => {
-    return `${Math.floor(Math.random() * 40) + 50}%`
+  const [width, setWidth] = React.useState("70%")
+  React.useEffect(() => {
+    const timer = setTimeout(() => {
+      setWidth(`${Math.floor(Math.random() * 40) + 50}%`)
+    }, 0)
+    return () => clearTimeout(timer)
   }, [])
 
   return (

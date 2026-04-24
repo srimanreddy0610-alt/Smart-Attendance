@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useCallback } from "react";
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { getPusherClient } from "@/lib/pusher/client";
@@ -52,7 +52,7 @@ export function useSessionNotifications(enrolledCourseIds: number[]) {
         );
       });
 
-      channel.bind(EVENTS.SESSION_ENDED, (data: { sessionId: number }) => {
+      channel.bind(EVENTS.SESSION_ENDED, () => {
         toast.info("Attendance session has ended");
       });
 

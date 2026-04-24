@@ -1,5 +1,5 @@
 import { requireParent } from "@/lib/auth";
-import { User, Bell, CalendarCheck, Search, Users, ExternalLink } from "lucide-react";
+import { User, Bell, Search, Users, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { 
   Card, 
@@ -32,7 +32,7 @@ export default async function ParentDashboardPage() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Parent Portal</h1>
           <p className="text-muted-foreground mt-2">
-            Monitor your children's attendance and academic progress
+            Monitor your children&apos;s attendance and academic progress
           </p>
         </div>
         <LinkStudentModal 
@@ -95,7 +95,7 @@ export default async function ParentDashboardPage() {
                 </div>
                 <p className="text-sm font-medium mb-1">No children linked yet</p>
                 <p className="text-xs text-muted-foreground mb-4 max-w-[200px]">
-                  Link an account using your child's roll number and verify via OTP.
+                  Link an account using your child&apos;s roll number and verify via OTP.
                 </p>
                 <LinkStudentModal />
               </div>

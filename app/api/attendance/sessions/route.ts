@@ -118,7 +118,7 @@ export async function GET(req: Request) {
     
     await getDb();
 
-    let queryFilter: any = {};
+    const queryFilter: any = {};
     if(courseId) queryFilter.courseId = courseId;
 
     const sessions = await AttendanceSession.find(queryFilter)

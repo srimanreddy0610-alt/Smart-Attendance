@@ -30,8 +30,8 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    let filterRecord: any = {};
-    let filterSession: any = {};
+    const filterRecord: any = {};
+    const filterSession: any = {};
 
     // If student, restrict to their own records
     if (user.role === "student") {

@@ -2,7 +2,6 @@ import { requireAdmin } from "@/lib/auth";
 import { getDb } from "@/lib/db";
 import { User, Course } from "@/lib/db/schema";
 import { 
-  Users, 
   Search,
   MoreVertical,
   Plus,
@@ -20,8 +19,15 @@ export default async function AdminTeachersPage() {
 
   const teachers = await User.find({ role: "teacher" }).sort({ createdAt: -1 }).lean();
   
+  interface TeacherDoc {
+    _id: any;
+    firstName: string;
+    lastName: string;
+    email: string;
+  }
+
   // For each teacher, count how many courses they have
-  const teachersWithCourses = await Promise.all(teachers.map(async (t: any) => {
+  const teachersWithCourses = await Promise.all((teachers as unknown as TeacherDoc[]).map(async (t) => {
     const courseCount = await Course.countDocuments({ teacherId: t._id });
     return {
       ...t,
@@ -136,7 +142,7 @@ export default async function AdminTeachersPage() {
           <div>
             <h3 className="font-bold text-lg mb-1">Unassigned Teachers</h3>
             <p className="text-sm text-muted-foreground mb-4">
-              Teachers who aren't currently managing any courses or sections.
+              Teachers who aren&apos;t currently managing any courses or sections.
             </p>
             <Button size="sm" variant="outline" className="rounded-lg shadow-xs">
               View List

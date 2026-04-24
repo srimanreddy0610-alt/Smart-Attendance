@@ -19,7 +19,6 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 const loginSchema = z.object({
   email: z.string().email("Invalid email address"),
@@ -53,8 +52,8 @@ export default function LoginPage() {
       toast.success("Welcome back!");
       router.push(data.redirect || "/dashboard");
       router.refresh();
-    } catch (error: any) {
-      toast.error(error.message);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Something went wrong");
     } finally {
       setIsLoading(false);
     }
@@ -81,7 +80,7 @@ export default function LoginPage() {
         <div className="relative z-10 mt-auto">
           <blockquote className="space-y-4">
             <p className="text-3xl font-medium leading-tight tracking-tight">
-              "The most advanced and secure way to manage academic attendance with AI."
+              &quot;The most advanced and secure way to manage academic attendance with AI.&quot;
             </p>
             <footer className="text-zinc-400 text-lg">
               Trusted by 100+ Educational Institutions

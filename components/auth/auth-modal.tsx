@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
-import { GraduationCap, Loader2, Lock, Mail, User, ArrowRight, ShieldCheck } from "lucide-react";
+import { GraduationCap, Loader2, Lock, Mail } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -32,7 +32,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
 
 const loginSchema = z.object({
   email: z.string().email("Invalid email address"),
@@ -91,8 +90,8 @@ export function AuthModal({ isOpen, onOpenChange, defaultView = "login" }: AuthM
       onOpenChange(false);
       router.push(data.redirect || "/dashboard");
       router.refresh();
-    } catch (error: any) {
-      toast.error(error.message);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Login failed");
     } finally {
       setIsLoading(false);
     }
@@ -113,8 +112,8 @@ export function AuthModal({ isOpen, onOpenChange, defaultView = "login" }: AuthM
       onOpenChange(false);
       router.push(data.role === "student" ? "/onboarding" : "/dashboard");
       router.refresh();
-    } catch (error: any) {
-      toast.error(error.message);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Registration failed");
     } finally {
       setIsLoading(false);
     }
@@ -286,7 +285,7 @@ export function AuthModal({ isOpen, onOpenChange, defaultView = "login" }: AuthM
           <div className="mt-8 text-center text-sm border-t border-zinc-900 pt-6">
             {view === "login" ? (
               <p className="text-zinc-500">
-                Don't have an account?{" "}
+                Don&apos;t have an account?{" "}
                 <button 
                   onClick={() => setView("signup")}
                   className="text-primary hover:underline font-bold"

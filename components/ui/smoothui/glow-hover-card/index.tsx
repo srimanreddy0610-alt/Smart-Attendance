@@ -207,11 +207,11 @@ export default function GlowHover({
       ...glowStyles,
     };
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return cloneElement(element, {
       ...props,
       style: mergedStyle,
       className: cn(existingClassName, "glow-overlay-item"),
-      // biome-ignore lint/suspicious/noExplicitAny: cloneElement requires flexible typing
     } as any);
   };
 
@@ -223,8 +223,9 @@ export default function GlowHover({
     >
       {/* Original Items */}
       <div className="contents">
-        {items.map((item, index) =>
-          cloneElement(item.element, {
+        {/* eslint-disable-next-line react-hooks/refs */}
+        {items.map((item, index) => {
+          const elementWithRef = cloneElement(item.element, {
             key: item.id,
             ref: (el: HTMLElement | null) => {
               itemRefs.current[index] = el;
@@ -239,9 +240,10 @@ export default function GlowHover({
                 (existingRef as { current: HTMLElement | null }).current = el;
               }
             },
-            // biome-ignore lint/suspicious/noExplicitAny: cloneElement requires flexible typing
-          } as any)
-        )}
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          } as any);
+          return elementWithRef;
+        })}
       </div>
 
       {/* Overlay with Glow Effect */}
@@ -253,21 +255,24 @@ export default function GlowHover({
           style={{
             opacity: mousePosition.opacity,
             maskImage: `radial-gradient(${maskSize}px ${maskSize}px at ${mousePosition.x}px ${mousePosition.y}px, #000 1%, transparent 50%)`,
-            WebkitMaskImage: `radial-gradient(${maskSize}px ${maskSize}px at ${mousePosition.x}px ${mousePosition.y}px, #000 1%, transparent 50%)`,
+            WebkitMaskImage: `radial-gradient(${maskSize}px ${maskSize}px at ${mousePosition.x}px ${maskSize}px at ${mousePosition.x}px ${mousePosition.y}px, #000 1%, transparent 50%)`,
             transition:
               "opacity 200ms ease, mask-image 200ms ease, -webkit-mask-image 200ms ease",
             willChange: "mask-image, opacity",
           }}
         >
+          {/* eslint-disable-next-line react-hooks/refs */}
           {items.map((item, index) => {
             const glowElement = applyGlowStyles(item.element, item.theme, true);
-            return cloneElement(glowElement, {
+            // eslint-disable-next-line react-hooks/refs
+            const elementWithOverlayRef = cloneElement(glowElement, {
               key: item.id,
               ref: (el: HTMLElement | null) => {
                 overlayItemRefs.current[index] = el;
               },
-              // biome-ignore lint/suspicious/noExplicitAny: cloneElement requires flexible typing
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
             } as any);
+            return elementWithOverlayRef;
           })}
         </div>
       )}

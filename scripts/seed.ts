@@ -2,7 +2,7 @@ import * as dotenv from "dotenv";
 dotenv.config({ path: ".env" });
 
 import mongoose from "mongoose";
-import { User, Student, Stream, Course, Enrollment, Timetable, IUser, IStream, ICourse, IStudent } from "../lib/db/schema";
+import { User, Student, Stream, Course, Enrollment, Timetable } from "../lib/db/schema";
 import { getDb } from "../lib/db";
 import bcrypt from "bcryptjs";
 
@@ -67,7 +67,7 @@ async function seed() {
     const sections = ["A", "B", "C"];
     const semesters = [2, 4, 6];
     
-    const coursesToCreate: any[] = [];
+    const coursesToCreate: Record<string, unknown>[] = [];
     
     // Distribute courses across streams, semesters, and sections
     streams.forEach((stream, streamIdx) => {
@@ -94,12 +94,16 @@ async function seed() {
 
     // 5. Create Students (60)
     console.log("Creating 60 students and enrolling them...");
-    const studentsData: any[] = [];
-    const profilesToCreate: any[] = [];
+    const studentsData: Record<string, unknown>[] = [];
+    const profilesToCreate: Record<string, unknown>[] = [];
     
     for (let i = 0; i < 60; i++) {
+      // Logic for distribution
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const streamIdx = i % streams.length;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const semIdx = Math.floor(i / (60 / semesters.length)) % semesters.length;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const secIdx = Math.floor(i / (60 / (semesters.length * sections.length))) % sections.length;
       
       studentsData.push({
@@ -132,9 +136,8 @@ async function seed() {
 
     // 6. Enroll Students & Create Timetables
     console.log("Setting up enrollments and timetables...");
-    const enrollmentPromises: any[] = [];
-    const timetablePromises: any[] = [];
-    const today = new Date().getDay() || 7;
+    const enrollmentPromises: Promise<unknown>[] = [];
+    const timetablePromises: Promise<unknown>[] = [];
 
     for (const student of studentProfiles) {
       // Find courses matching student's year/sem/sec

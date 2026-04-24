@@ -2,7 +2,6 @@ import { getCurrentUser } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { getDb } from "@/lib/db";
 import { 
-  User, 
   Course, 
   Enrollment, 
   AttendanceSession, 
@@ -21,7 +20,6 @@ import {
   ArrowRight,
   BookOpen,
   Sparkles,
-  Plus,
 } from "lucide-react";
 import Link from "next/link";
 import { NotificationListener } from "@/components/student/notification-listener";
@@ -43,7 +41,7 @@ export default async function StudentDashboard() {
     populate: { path: 'teacherId' }
   }).lean();
 
-  const tempCourseIds = enrollmentsList.map((e: any) => e.courseId?._id);
+  const tempCourseIds = enrollmentsList.map((e: any) => (e.courseId as any)?._id);
 
   // Active sessions for enrolled courses
   const activeSessionsRaw = tempCourseIds.length > 0
@@ -53,16 +51,25 @@ export default async function StudentDashboard() {
       }).populate('courseId').lean()
     : [];
 
-  const activeSessions = activeSessionsRaw.map((s: any) => ({
+  interface ActiveSessionInfo {
+    _id: any;
+    courseId?: {
+      _id: any;
+      name: string;
+    };
+    startTime: Date;
+  }
+
+  const activeSessions = (activeSessionsRaw as unknown as ActiveSessionInfo[]).map((s) => ({
     sessionId: s._id.toString(),
     courseName: s.courseId?.name,
     startTime: s.startTime
   }));
 
   const enrolledCourses = enrollmentsList.map((e: any) => {
-    const c = e.courseId as any;
-    const teacher = c?.teacherId as any;
-    const hasActiveSession = activeSessionsRaw.some((s: any) => s.courseId?._id.toString() === c?._id.toString());
+    const c = e.courseId;
+    const teacher = c?.teacherId;
+    const hasActiveSession = (activeSessionsRaw as unknown as ActiveSessionInfo[]).some((s) => s.courseId?._id.toString() === c?._id.toString());
     
     return {
       courseId: c?._id.toString(),
@@ -70,7 +77,7 @@ export default async function StudentDashboard() {
       courseCode: c?.code,
       teacherName: teacher ? `${teacher.firstName} ${teacher.lastName}` : "Unknown",
       isLive: hasActiveSession,
-      activeSessionId: activeSessionsRaw.find((s: any) => s.courseId?._id.toString() === c?._id.toString())?._id.toString(),
+      activeSessionId: (activeSessionsRaw as unknown as ActiveSessionInfo[]).find((s) => s.courseId?._id.toString() === c?._id.toString())?._id.toString(),
     };
   });
 
@@ -96,7 +103,17 @@ export default async function StudentDashboard() {
       }).populate('courseId').sort({ startTime: 1 }).lean()
     : [];
 
-  const todaysClasses = todaysClassesRaw.map((t: any) => ({
+  interface TimetableEntry {
+    courseId?: {
+      _id: any;
+      name: string;
+    };
+    startTime: string;
+    endTime: string;
+    roomNumber?: string;
+  }
+
+  const todaysClasses = (todaysClassesRaw as unknown as TimetableEntry[]).map((t) => ({
     courseId: t.courseId?._id.toString(),
     courseName: t.courseId?.name,
     startTime: t.startTime,
@@ -111,7 +128,17 @@ export default async function StudentDashboard() {
     _id: { $nin: courseIds }
   }).populate('teacherId').lean();
 
-  const availableCourses = availableCoursesRaw.map((c: any) => ({
+  interface CourseInfo {
+    _id: any;
+    name: string;
+    code: string;
+    teacherId?: {
+      firstName: string;
+      lastName: string;
+    };
+  }
+
+  const availableCourses = (availableCoursesRaw as unknown as CourseInfo[]).map((c) => ({
     id: c._id.toString(),
     name: c.name,
     code: c.code,

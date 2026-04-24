@@ -127,7 +127,7 @@ export interface IAttendanceSession extends Document {
   status: typeof SESSION_STATUSES[number];
   accessCode?: string;
   qrUrl?: string; 
-  metadata?: any;
+  metadata?: Record<string, unknown>;
   createdAt: Date;
 }
 const attendanceSessionSchema = new Schema<IAttendanceSession>({
@@ -186,7 +186,7 @@ export const Parent: Model<IParent> = mongoose.models.Parent || mongoose.model<I
 
 // --- ParentLinkOTP Schema ---
 export interface IParentLinkOTP extends Document {
-  parentId: string;
+  parentId: mongoose.Types.ObjectId | IUser | string;
   studentId: mongoose.Types.ObjectId | IStudent | string;
   otp: string;
   expiresAt: Date;

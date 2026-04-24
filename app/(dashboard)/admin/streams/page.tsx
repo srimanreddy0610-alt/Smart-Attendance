@@ -22,8 +22,14 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 
+interface Stream {
+  _id: string;
+  name: string;
+  description?: string;
+}
+
 export default function AdminStreamsPage() {
-  const [streams, setStreams] = useState<any[]>([]);
+  const [streams, setStreams] = useState<Stream[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
   const [newStream, setNewStream] = useState({ name: "", description: "" });
@@ -43,7 +49,10 @@ export default function AdminStreamsPage() {
   };
 
   useEffect(() => {
-    fetchStreams();
+    const init = async () => {
+      await fetchStreams();
+    };
+    init();
   }, []);
 
   const handleCreate = async () => {

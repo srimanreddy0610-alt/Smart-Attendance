@@ -55,6 +55,19 @@ import {
 
 const dayNames = ["", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
+interface Stream {
+  _id: string;
+  name: string;
+}
+
+interface Timetable {
+  id: string;
+  dayOfWeek: number;
+  startTime: string;
+  endTime: string;
+  roomNumber: string | null;
+}
+
 interface CourseDetailTabsProps {
   course: {
     id: string;
@@ -110,13 +123,13 @@ export function CourseDetailTabs({
       name: course.name,
       code: course.code,
       department: course.department,
-      streamId: (course as any).streamId || "",
+      streamId: (course as { streamId?: string }).streamId || "",
       semester: course.semester,
       section: course.section,
     },
   });
 
-  const [streams, setStreams] = useState<any[]>([]);
+  const [streams, setStreams] = useState<Stream[]>([]);
 
   useEffect(() => {
     fetch("/api/streams").then(res => res.json()).then(setStreams).catch(() => {});
@@ -124,7 +137,7 @@ export function CourseDetailTabs({
 
 
   // Timetable editing state
-  const [editingTimetable, setEditingTimetable] = useState<any>(null);
+  const [editingTimetable, setEditingTimetable] = useState<Timetable | null>(null);
 
   // Timetable form state
   const [ttDay, setTtDay] = useState("1");
@@ -237,7 +250,7 @@ export function CourseDetailTabs({
     }
   }
 
-  function startEditingTimetable(t: any) {
+  function startEditingTimetable(t: Timetable) {
     setEditingTimetable(t);
     setTtDay(String(t.dayOfWeek));
     setTtStart(t.startTime);

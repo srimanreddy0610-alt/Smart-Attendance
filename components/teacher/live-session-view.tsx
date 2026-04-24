@@ -46,8 +46,6 @@ interface LiveSessionViewProps {
 
 export function LiveSessionView({
   sessionId,
-  courseId,
-  courseName,
   startTime,
   endTime,
   initialStatus,
@@ -60,7 +58,7 @@ export function LiveSessionView({
     studentId: string;
     studentName: string;
   } | null>(null);
-  const [timeRemaining, setTimeRemaining] = useState("");
+  const [timeRemaining, setTimeRemaining] = useState(endTime && initialStatus !== "ended" ? "" : "--:--");
 
   const currentStatus = session?.status ?? initialStatus;
   const percentage =
@@ -69,7 +67,6 @@ export function LiveSessionView({
   // Timer
   useEffect(() => {
     if (!endTime || currentStatus === "ended") {
-      setTimeRemaining("--:--");
       return;
     }
 

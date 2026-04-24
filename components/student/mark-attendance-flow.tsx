@@ -1,10 +1,9 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
-  Camera,
   CheckCircle,
   XCircle,
   Loader2,
@@ -49,7 +48,6 @@ type Status = "awaiting_code" | "loading" | "camera" | "capturing" | "verifying"
 
 export function MarkAttendanceFlow({
   sessionId,
-  courseName,
   storedDescriptor,
   expectedAccessCode,
 }: MarkAttendanceFlowProps) {

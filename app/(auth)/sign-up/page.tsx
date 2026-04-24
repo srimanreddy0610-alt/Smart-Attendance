@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
-import { GraduationCap, Loader2, Lock, Mail, User, ShieldCheck } from "lucide-react";
+import { GraduationCap, Loader2, Lock, Mail } from "lucide-react";
 import { toast } from "sonner";
 import Link from "next/link";
 
@@ -69,8 +69,8 @@ export default function SignUpPage() {
         router.push("/dashboard");
       }
       router.refresh();
-    } catch (error: any) {
-      toast.error(error.message);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Something went wrong");
     } finally {
       setIsLoading(false);
     }

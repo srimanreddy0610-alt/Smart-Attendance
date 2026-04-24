@@ -29,14 +29,25 @@ export default async function CourseDetailPage({
   if (!course) redirect("/teacher/courses");
 
   // Get enrolled students
-  const enrollmentsList = await Enrollment.find({ courseId }).populate({
-    path: 'studentId',
-    populate: { path: 'user' }
-  }).lean();
+  interface EnrollmentWithStudent {
+    _id: any;
+    studentId?: {
+      _id: any;
+      rollNumber: string;
+      department: string;
+      photoUrl?: string;
+      user?: {
+        firstName: string;
+        lastName: string;
+        email: string;
+      };
+    };
+    enrolledAt: Date | string;
+  }
 
-  const enrolledStudents = enrollmentsList.map((e: any) => {
-    const student = e.studentId as any;
-    const studentUser = student?.user as any;
+  const enrolledStudents = (enrollmentsList as unknown as EnrollmentWithStudent[]).map((e) => {
+    const student = e.studentId;
+    const studentUser = student?.user;
     return {
       enrollmentId: e._id.toString(),
       studentId: student?._id.toString(),
@@ -51,9 +62,15 @@ export default async function CourseDetailPage({
   }).sort((a, b) => (a.rollNumber || "").localeCompare(b.rollNumber || ""));
 
   // Get recent sessions
-  const sessionsList = await AttendanceSession.find({ courseId }).sort({ startTime: -1 }).limit(20).lean();
+  interface SessionDoc {
+    _id: any;
+    sessionDate: Date | string;
+    startTime: Date | string;
+    endTime: Date | string;
+    status: string;
+  }
 
-  const recentSessions = await Promise.all(sessionsList.map(async (s: any) => {
+  const recentSessions = await Promise.all((sessionsList as unknown as SessionDoc[]).map(async (s) => {
     const presentCount = await AttendanceRecord.countDocuments({
       sessionId: s._id,
       status: 'present'
@@ -69,8 +86,16 @@ export default async function CourseDetailPage({
   }));
 
   // Get timetable
-  const timetableDocs = await Timetable.find({ courseId }).sort({ dayOfWeek: 1, startTime: 1 }).lean();
-  const timetableEntries = timetableDocs.map((t: any) => ({
+  interface TimetableDoc {
+    _id: any;
+    courseId: any;
+    dayOfWeek: number;
+    startTime: string;
+    endTime: string;
+    roomNumber?: string;
+  }
+
+  const timetableEntries = (timetableDocs as unknown as TimetableDoc[]).map((t) => ({
     id: t._id.toString(),
     courseId: t.courseId.toString(),
     dayOfWeek: t.dayOfWeek,

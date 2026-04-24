@@ -53,8 +53,8 @@ export function LinkStudentModal({ trigger }: { trigger?: React.ReactNode }) {
       setObfuscatedEmail(data.email);
       setStep("verify");
       toast.success("OTP sent successfully to " + data.email);
-    } catch (error: any) {
-      toast.error(error.message);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to request OTP");
     } finally {
       setLoading(false);
     }
@@ -84,8 +84,8 @@ export function LinkStudentModal({ trigger }: { trigger?: React.ReactNode }) {
       setStep("request");
       setIdentifier("");
       setOtp("");
-    } catch (error: any) {
-      toast.error(error.message);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Invalid OTP");
     } finally {
       setLoading(false);
     }
@@ -104,7 +104,7 @@ export function LinkStudentModal({ trigger }: { trigger?: React.ReactNode }) {
           </DialogTitle>
           <DialogDescription>
             {step === "request" 
-              ? "Enter your child's roll number or student email to request a link."
+              ? "Enter your child&apos;s roll number or student email to request a link."
               : `Enter the 6-digit code sent to ${obfuscatedEmail}`}
           </DialogDescription>
         </DialogHeader>
@@ -123,7 +123,7 @@ export function LinkStudentModal({ trigger }: { trigger?: React.ReactNode }) {
                 <Mail className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
               </div>
               <p className="text-[10px] text-muted-foreground">
-                We'll send a verification code to the student's email address.
+                We&apos;ll send a verification code to the student&apos;s email address.
               </p>
             </div>
             <Button type="submit" className="w-full" disabled={loading || !identifier}>

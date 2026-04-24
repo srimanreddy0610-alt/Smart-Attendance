@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Plus, Users, BookOpen, Loader2 } from "lucide-react";
@@ -45,6 +45,11 @@ interface Course {
   studentCount: number;
 }
 
+interface Stream {
+  _id: string;
+  name: string;
+}
+
 const departments = [
   "Computer Science",
   "Information Technology",
@@ -71,11 +76,11 @@ export function CourseList({ courses: initialCourses }: { courses: Course[] }) {
     },
   });
 
-  const [streams, setStreams] = useState<any[]>([]);
+  const [streams, setStreams] = useState<Stream[]>([]);
 
-  useState(() => {
+  useEffect(() => {
     fetch("/api/streams").then(res => res.json()).then(setStreams).catch(() => {});
-  });
+  }, []);
 
   async function onSubmit(values: CourseValues) {
     setIsLoading(true);

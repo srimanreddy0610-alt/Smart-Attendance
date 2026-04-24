@@ -246,8 +246,9 @@ function ComboboxChip({
   children,
   showRemove = true,
   ...props
-}: ComboboxPrimitive.Chip.Props & {
+}: React.ComponentPropsWithRef<typeof ComboboxPrimitive.Chip> & {
   showRemove?: boolean
+  value?: string | number
 }) {
   return (
     <ComboboxPrimitive.Chip
@@ -274,7 +275,6 @@ function ComboboxChip({
 
 function ComboboxChipsInput({
   className,
-  children,
   ...props
 }: ComboboxPrimitive.Input.Props) {
   return (

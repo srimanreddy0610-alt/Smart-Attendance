@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Play, Loader2, AlertCircle } from "lucide-react";
@@ -12,7 +12,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import Link from "next/link";
@@ -31,6 +30,14 @@ export function StartSessionForm({
   const router = useRouter();
   const [duration, setDuration] = useState(60);
   const [isLoading, setIsLoading] = useState(false);
+  const [previewEndTime, setPreviewEndTime] = useState("");
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setPreviewEndTime(new Date(Date.now() + duration * 60 * 1000).toLocaleTimeString());
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [duration]);
 
   async function handleStart() {
     setIsLoading(true);
@@ -111,10 +118,7 @@ export function StartSessionForm({
           <div className="text-sm text-muted-foreground space-y-1">
             <p>Auto-end after: {duration} minutes</p>
             <p>
-              End time:{" "}
-              {new Date(
-                Date.now() + duration * 60 * 1000
-              ).toLocaleTimeString()}
+              End time: {previewEndTime}
             </p>
           </div>
         </div>
