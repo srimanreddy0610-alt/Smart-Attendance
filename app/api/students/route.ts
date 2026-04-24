@@ -40,7 +40,6 @@ export async function POST(req: Request) {
 
     const student = await Student.create({
       user: userId,
-      user: user._id,
       rollNumber: parsed.data.rollNumber,
       department: parsed.data.department,
       semester: parsed.data.semester,
