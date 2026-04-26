@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { getDb } from "@/lib/db";
-import { User, Course, Enrollment, AttendanceSession, AttendanceRecord, Timetable } from "@/lib/db/schema";
+import { User, Course, Enrollment, AttendanceSession, AttendanceRecord, Timetable, Student } from "@/lib/db/schema";
 import { CourseDetailTabs } from "@/components/teacher/course-detail-tabs";
 
 export default async function CourseDetailPage({
@@ -29,6 +29,13 @@ export default async function CourseDetailPage({
   if (!course) redirect("/teacher/courses");
 
   // Get enrolled students
+  const enrollmentsList = await Enrollment.find({ courseId })
+    .populate({
+      path: "studentId",
+      populate: { path: "user" }
+    })
+    .lean();
+
   interface EnrollmentWithStudent {
     _id: any;
     studentId?: {
@@ -50,18 +57,21 @@ export default async function CourseDetailPage({
     const studentUser = student?.user;
     return {
       enrollmentId: e._id.toString(),
-      studentId: student?._id.toString(),
-      rollNumber: student?.rollNumber,
-      department: student?.department,
-      firstName: studentUser?.firstName,
-      lastName: studentUser?.lastName,
-      email: studentUser?.email,
-      photoUrl: student?.photoUrl,
-      enrolledAt: e.enrolledAt instanceof Date ? e.enrolledAt.toISOString() : e.enrolledAt,
+      studentId: student?._id?.toString() || "",
+      rollNumber: student?.rollNumber || "N/A",
+      firstName: studentUser?.firstName || null,
+      lastName: studentUser?.lastName || null,
+      email: studentUser?.email || "N/A",
+      enrolledAt: e.enrolledAt instanceof Date ? e.enrolledAt.toISOString() : String(e.enrolledAt),
     };
   }).sort((a, b) => (a.rollNumber || "").localeCompare(b.rollNumber || ""));
 
   // Get recent sessions
+  const sessionsList = await AttendanceSession.find({ courseId })
+    .sort({ sessionDate: -1 })
+    .limit(10)
+    .lean();
+
   interface SessionDoc {
     _id: any;
     sessionDate: Date | string;
@@ -77,15 +87,17 @@ export default async function CourseDetailPage({
     });
     return {
       id: s._id.toString(),
-      sessionDate: s.sessionDate instanceof Date ? s.sessionDate.toISOString() : s.sessionDate,
-      startTime: s.startTime instanceof Date ? s.startTime.toISOString() : s.startTime,
-      endTime: s.endTime instanceof Date ? s.endTime.toISOString() : s.endTime,
-      status: s.status,
+      sessionDate: s.sessionDate instanceof Date ? s.sessionDate.toISOString() : String(s.sessionDate),
+      startTime: s.startTime instanceof Date ? s.startTime.toISOString() : String(s.startTime),
+      endTime: s.endTime ? (s.endTime instanceof Date ? s.endTime.toISOString() : String(s.endTime)) : null,
+      status: (s.status === "active" || s.status === "ended" ? s.status : "ended") as "active" | "ended",
       presentCount
     };
   }));
 
   // Get timetable
+  const timetableDocs = await Timetable.find({ courseId }).lean();
+
   interface TimetableDoc {
     _id: any;
     courseId: any;
@@ -97,11 +109,10 @@ export default async function CourseDetailPage({
 
   const timetableEntries = (timetableDocs as unknown as TimetableDoc[]).map((t) => ({
     id: t._id.toString(),
-    courseId: t.courseId.toString(),
     dayOfWeek: t.dayOfWeek,
     startTime: t.startTime,
     endTime: t.endTime,
-    roomNumber: t.roomNumber,
+    roomNumber: t.roomNumber || null,
   }));
 
   const formattedCourse = {
