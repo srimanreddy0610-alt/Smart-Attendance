@@ -1,10 +1,9 @@
 import { NextResponse } from "next/server";
-import { getCurrentUser, getSessionUserId } from "@/lib/auth";
+import { getSessionUserId } from "@/lib/auth";
 import { getDb } from "@/lib/db";
 import {
   AttendanceRecord,
   AttendanceSession,
-  Course,
   Student,
   User,
 } from "@/lib/db/schema";
@@ -30,7 +29,9 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const filterRecord: any = {};
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const filterSession: any = {};
 
     // If student, restrict to their own records
@@ -78,8 +79,11 @@ export async function GET(req: Request) {
       .lean();
 
     // Map the results back to the desired format
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const results = records.map((record: any) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const session = sessions.find((s: any) => s._id.toString() === record.sessionId.toString());
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const course = session?.courseId as any;
 
       return {
@@ -95,6 +99,7 @@ export async function GET(req: Request) {
         courseCode: course?.code,
         courseId: course?._id,
       };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     }).sort((a: any, b: any) => {
         if(!a.sessionDate || !b.sessionDate) return 0;
         return new Date(b.sessionDate).getTime() - new Date(a.sessionDate).getTime();
